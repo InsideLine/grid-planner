@@ -1,0 +1,1938 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grid Planner</title>
+<style>
+:root{
+  --bg:#f3f2ee; --panel:#ffffff; --ink:#1c1b19; --muted:#6c6b65; --line:#e1dfd8;
+  --accent:#0d6e6e; --accent-ink:#ffffff; --danger:#b3261e;
+  --warn-bg:#fff3d1; --warn-ink:#674800; --info-bg:#e6f1f0; --info-ink:#0d4f4f;
+  --tile-empty:#eae8e1; --post-bg:#ffffff;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 10px 28px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    color-scheme:dark;                 /* scroll bars and menus drawn by the browser go dark too */
+    --bg:#151513; --panel:#1f1f1c; --ink:#eeede8; --muted:#a3a29b; --line:#34332f;
+    --accent:#43c2b7; --accent-ink:#04211f; --danger:#ff8a80;
+    --warn-bg:#3a2f10; --warn-ink:#f3d58a; --info-bg:#12302e; --info-ink:#a9e3dd;
+    --tile-empty:#2a2926;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.25);
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
+h2{font-size:14px;margin:0;font-weight:650}
+p{margin:0}
+.muted{color:var(--muted)}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+button:hover:not(:disabled){border-color:var(--muted)}
+button:disabled{opacity:.45;cursor:default}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button.danger{color:var(--danger)}
+button.wide{width:100%}
+button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+
+/* top bar */
+.bar{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px;letter-spacing:.01em;margin-right:6px}
+.logo{display:grid;grid-template-columns:repeat(3,5px);gap:2px}
+.logo i{width:5px;height:6.5px;background:var(--accent);border-radius:1px}
+.logo i:nth-child(2),.logo i:nth-child(6),.logo i:nth-child(7){opacity:.45}
+.field{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:13px}
+.field select,.field input{color:var(--ink)}
+.field input[type=color]{width:30px;height:28px;padding:0;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer}
+.spacer{flex:1}
+.menu{position:relative}
+.menu summary{list-style:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;user-select:none}
+.menu summary::-webkit-details-marker{display:none}
+.menu summary::after{content:" ▾";color:var(--muted)}
+.menuBody{position:absolute;right:0;top:calc(100% + 6px);z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:8px;display:grid;gap:6px;width:240px}
+.menuBody button{text-align:left}
+.menuBody p{font-size:12px;padding:2px 4px}
+
+/* layout */
+main{display:grid;grid-template-columns:236px minmax(0,1fr) 344px;min-height:0}
+.panel{background:var(--panel);padding:14px;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable;min-height:0}
+#library{border-right:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+#side{border-left:1px solid var(--line)}
+#stage{overflow:auto;padding:20px 16px 48px;min-height:0}
+.panelHead{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.stageCard{max-width:540px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+.stageHead{margin-bottom:12px}
+.stageHead p{font-size:13px}
+#gridWrap{padding:2px 0}
+.rowTools{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+.rowTools button{font-size:12.5px;padding:5px 10px}
+.hint{font-size:12.5px;margin-top:12px;text-align:center}
+
+/* library */
+.libList{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.thumb{position:relative;aspect-ratio:3/4;border-radius:6px;overflow:hidden;background:var(--tile-empty);cursor:grab;border:1px solid var(--line)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.thumb .usedTag{position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.62);color:#fff;font-size:10.5px;padding:1px 6px;border-radius:9px}
+.thumb .x{position:absolute;right:4px;top:4px;width:20px;height:20px;padding:0;border-radius:50%;border:none;background:rgba(0,0,0,.62);color:#fff;line-height:18px;font-size:14px;opacity:0}
+.thumb:hover .x,.thumb .x:focus-visible{opacity:1}
+.empty{border:1.5px dashed var(--line);border-radius:10px;padding:16px 12px;text-align:center;color:var(--muted);font-size:13px}
+
+/* grid */
+.grid{position:relative;margin:0 auto;touch-action:none;user-select:none}
+.cell{position:absolute;overflow:hidden;background:var(--tile-empty);cursor:pointer}
+.cell.filled{cursor:grab}
+.cell .plus{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:22px;opacity:.4}
+.cell:hover .plus{opacity:1}
+.cell.drop{outline:2px solid var(--accent);outline-offset:-2px}
+.slice{position:relative;overflow:hidden;background:var(--post-bg)}
+.slice img,.cropper img{position:absolute;left:0;top:0;max-width:none;pointer-events:none;user-select:none}
+.badge{position:absolute;left:5px;top:5px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:rgba(0,0,0,.64);color:#fff;font:600 11px/20px system-ui,sans-serif;text-align:center;pointer-events:none}
+.cell.posted .slice{opacity:.4}
+.cell.posted .badge{background:var(--accent);color:var(--accent-ink)}
+.selbox{position:absolute;border:2px solid var(--accent);border-radius:2px;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.7)}
+.ghost{position:absolute;border:2px dashed var(--accent);background:color-mix(in srgb,var(--accent) 20%,transparent);pointer-events:none;border-radius:2px;z-index:5}
+.ghost.bad{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 16%,transparent)}
+
+/* checks */
+#checks{display:grid;gap:8px;margin-top:12px}
+.msg{border-radius:8px;padding:8px 10px;font-size:12.5px}
+.msg.warn{background:var(--warn-bg);color:var(--warn-ink)}
+.msg.info{background:var(--info-bg);color:var(--info-ink)}
+
+/* side panel */
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg);padding:4px;border-radius:10px;margin-bottom:14px}
+.tabs button{border:none;background:none;padding:6px 8px;border-radius:7px;color:var(--muted)}
+.tabs button[aria-selected=true]{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.cropper{position:relative;overflow:hidden;margin:0 auto;cursor:grab;touch-action:none;border-radius:4px;box-shadow:0 0 0 1px var(--line);background:var(--post-bg)}
+.cropper:active{cursor:grabbing}
+.cropper .vline,.cropper .hline{position:absolute;pointer-events:none;filter:drop-shadow(0 0 1px rgba(0,0,0,.9))}
+.cropper .vline{top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.95)}
+.cropper .hline{left:0;right:0;border-top:1px dashed rgba(255,255,255,.95)}
+.cropper .bleed{position:absolute;top:0;bottom:0;pointer-events:none;background:repeating-linear-gradient(135deg,rgba(0,0,0,.5) 0 4px,rgba(0,0,0,.26) 4px 8px)}
+.sub{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+.group{margin-top:16px}
+.group>label,.group>.lab{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+input[type=range]{width:100%;margin:2px 0;accent-color:var(--accent)}
+.btnRow{display:flex;gap:6px;flex-wrap:wrap}
+.btnRow button{flex:1;font-size:12.5px;padding:6px 8px}
+.seg{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.seg span{width:66px;font-size:13px}
+.seg div{display:flex;gap:4px;flex:1}
+.seg button{flex:1;padding:5px 0}
+.seg button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.note{font-size:12.5px;margin-top:8px}
+.note.bad{color:var(--warn-ink);background:var(--warn-bg);padding:6px 9px;border-radius:7px}
+.fileInfo{font-size:12px;color:var(--muted);margin-top:14px;overflow-wrap:anywhere}
+.help ol,.help ul{padding-left:20px;margin:8px 0 0}
+.help li{margin-bottom:7px}
+.help h3{font-size:13px;margin:18px 0 0}
+.postHead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.postList{display:grid;gap:6px;margin-top:12px}
+.postRow{display:grid;grid-template-columns:24px 38px minmax(0,1fr) auto auto;gap:9px;align-items:center;padding:6px;border:1px solid var(--line);border-radius:9px}
+.postRow.done{opacity:.55}
+.postRow .num{font-weight:700;text-align:center}
+.postRow .t1{font-size:13px}
+.postRow .t2{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.postRow button{padding:4px 9px;font-size:12px}
+.postRow input{width:17px;height:17px;accent-color:var(--accent)}
+
+textarea,input[type=password],input[type=text]{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 9px;resize:vertical}
+.small{font-size:12.5px}
+.igBox{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px;display:grid;gap:9px}
+.igBox h3{font-size:13.5px;margin:0}
+.igBox .who{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.igBox details{font-size:12.5px}
+.igBox details summary{cursor:pointer;color:var(--muted)}
+.igBox details ol{padding-left:18px;margin:8px 0 0}
+.igBox details li{margin-bottom:6px}
+.igBox details .btnRow{margin-top:8px}
+.igBox code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:12px;overflow-wrap:anywhere}
+.igBox .field{justify-content:space-between}
+.linkBtn{border:none;background:none;padding:0;color:var(--muted);text-decoration:underline;font-size:12px}
+.runNote{font-size:12.5px;font-weight:600}
+.postRow a{font-size:11.5px;color:var(--accent)}
+.handBox{border:1px solid var(--accent);border-radius:10px;padding:12px;margin-bottom:14px;display:grid;gap:9px}
+.handBox h3{font-size:13.5px;margin:0}
+.handNext{display:grid;grid-template-columns:84px minmax(0,1fr);gap:11px;align-items:center}
+.handNext .t1{font-size:14px;font-weight:600}
+.handNext .t2{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.handCap{background:var(--bg);border-radius:8px;padding:8px 10px;font-size:12.5px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:140px;overflow:auto}
+.handBox details{font-size:12.5px}
+.handBox details summary{cursor:pointer;color:var(--muted)}
+.handBox details ol{padding-left:18px;margin:8px 0 0}
+.handBox details li{margin-bottom:6px}
+.autoBox{margin-top:16px}
+.autoBox>summary{cursor:pointer;font-size:12.5px;color:var(--muted);padding:4px 0}
+.autoBox .igBox{margin:8px 0 0}
+.slice canvas,.cropper canvas{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+.group select{width:100%}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin:10px 0}
+.checks label{display:flex;gap:6px;align-items:center;font-size:13px}
+.checks label.off{color:var(--muted)}
+.checks input{width:15px;height:15px;accent-color:var(--accent)}
+
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);background:#222;color:#fff;padding:9px 14px;border-radius:9px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:50;max-width:min(92vw,520px);text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:900px){
+  body{overflow:auto;display:block}
+  main{display:block}
+  .panel,#stage{overflow:visible}
+  #library,#side{border:none;border-bottom:1px solid var(--line)}
+  .libList{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
+}
+</style>
+<meta name="grid-planner-web" content="1">
+<meta name="description" content="Plan an Instagram profile grid, split photos across tiles and export them ready to post. Photos stay on your computer.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Grid Planner">
+<meta name="theme-color" content="#f3f2ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151513" media="(prefers-color-scheme: dark)">
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand"><span class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Grid Planner</div>
+  <label class="field">Post size <select id="format"></select></label>
+  <label class="field">Fill color <input type="color" id="bg" value="#ffffff" title="Shown wherever a photo doesn't cover its tiles"></label>
+  <label class="field">Sharpen <select id="sharpen" title="Crispness put back after a photo is shrunk to Instagram's size"><option value="off">Off</option><option value="std">Standard</option><option value="strong">Strong</option></select></label>
+  <label class="field"><input type="checkbox" id="showOrder" checked> Show post order</label>
+  <span class="spacer"></span>
+  <button id="btnAdd" class="primary">Add photos</button>
+  <button id="btnZip">Download tiles (.zip)</button>
+  <details class="menu" id="projMenu">
+    <summary>Project</summary>
+    <div class="menuBody">
+      <button id="btnSave">Save project file…</button>
+      <button id="btnOpen">Open project file…</button>
+      <button id="btnClear" class="danger">Start over</button>
+      <p class="muted" id="saveNote">Your plan is saved automatically in this browser.</p>
+    </div>
+  </details>
+</header>
+
+<main>
+  <aside class="panel" id="library">
+    <div class="panelHead"><h2>Photos</h2><span id="libCount" class="muted"></span></div>
+    <div id="libList" class="libList"></div>
+    <div id="libEmpty" class="empty">Add photos, or drop them anywhere on this page — a zip from Google Photos works too.<br>Then drag them onto the grid.</div>
+    <button id="btnPlaceAll" class="wide">Place unused photos</button>
+  </aside>
+
+  <section id="stage">
+    <div class="stageCard">
+      <div class="stageHead">
+        <h2>Profile grid preview</h2>
+        <p class="muted">Newest post sits top-left. Drag photos to move or swap them.</p>
+      </div>
+      <div id="gridWrap"><div id="grid" class="grid"></div></div>
+      <div class="rowTools">
+        <button id="btnRowTop">Insert row at top</button>
+        <button id="btnCompact">Close empty rows</button>
+      </div>
+      <p id="formatHint" class="muted hint"></p>
+      <div id="checks"></div>
+    </div>
+  </section>
+
+  <aside class="panel" id="side">
+    <div class="tabs" role="tablist">
+      <button id="tabEdit" role="tab">Edit photo</button>
+      <button id="tabPost" role="tab">Posting order</button>
+    </div>
+    <div id="pane"></div>
+  </aside>
+</main>
+
+<input type="file" id="filePick" accept="image/*,.zip,application/zip,application/x-zip-compressed" multiple hidden>
+<input type="file" id="projPick" accept=".json,application/json" hidden>
+<div id="toast" role="status"></div>
+
+<script>
+(() => {
+'use strict';
+
+// ---------- constants ----------
+const COLS = 3, GAP = 3, GRID_ASPECT = 3 / 4, ZMIN = 0.1, ZMAX = 6, MAXH = 5;
+const FORMATS = {
+  '4x5': { W: 1080, H: 1350, label: '4:5 portrait · 1080×1350' },
+  '3x4': { W: 1080, H: 1440, label: '3:4 tall · 1080×1440' },
+  '1x1': { W: 1080, H: 1080, label: '1:1 square · 1080×1080' },
+};
+const HINTS = {
+  '4x5': 'The grid hides a thin strip on each side of a 4:5 post (hatched in the editor). Split photos overlap by that strip so the grid still lines up. Accepted by the app, schedulers and the API.',
+  '3x4': 'A 3:4 post fills its grid tile exactly, with nothing hidden, and is the tallest photo Instagram keeps whole. Post these from the Instagram phone app — instagram.com, schedulers and the API may cut or reject anything taller than 4:5.',
+  '1x1': 'The grid hides a wide strip on each side of a square post (hatched in the editor). Keep faces and text away from the edges.',
+};
+const SHARPEN = { off: 0, std: 0.3, strong: 0.6 };      // how much crispness is put back after shrinking
+const FRAMES = { mat: 'Gallery mat', bar: 'Info bar', thin: 'Thin border', film: 'Film edge' };
+const BACKS = { white: 'White', black: 'Black', blur: 'Blurred photo', fill: 'Same as “Fill color”' };      // what a frame's border is made of
+const BLUR_MAX = 70;                    // a blurred border at 100%: this many pixels of blur on a 1080-wide post
+const FRAME_FIELDS = [['camera', 'Camera'], ['lens', 'Lens'], ['settings', 'Settings'], ['film', 'Film simulation'], ['date', 'Date']];
+const SANS = '"Segoe UI Variable Display","Segoe UI","Helvetica Neue",Helvetica,Arial,sans-serif';
+const MONO = '"Cascadia Mono","Cascadia Code",Consolas,Menlo,monospace';
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// Fujifilm's own numbers for its film simulations (colour ones, then the black-and-white ones)
+const FUJI_FILM = { 0x0: 'Provia', 0x100: 'Studio Portrait', 0x110: 'Studio Portrait', 0x120: 'Astia', 0x130: 'Studio Portrait', 0x200: 'Velvia', 0x300: 'Studio Portrait Ex', 0x400: 'Velvia',
+  0x500: 'Pro Neg. Std', 0x501: 'Pro Neg. Hi', 0x600: 'Classic Chrome', 0x700: 'Eterna', 0x800: 'Classic Neg.', 0x900: 'Eterna Bleach Bypass', 0xa00: 'Nostalgic Neg.', 0xb00: 'Reala Ace' };
+const FUJI_MONO = { 0x300: 'Monochrome', 0x301: 'Monochrome + R', 0x302: 'Monochrome + Ye', 0x303: 'Monochrome + G', 0x310: 'Sepia', 0x500: 'Acros', 0x501: 'Acros + R', 0x502: 'Acros + Ye', 0x503: 'Acros + G' };
+
+// ---------- state ----------
+const state = { format: '4x5', bg: '#ffffff', sharpen: 'std', showOrder: true, rows: 4, items: [], posted: {}, links: {}, selected: null };
+let server = null;                      // status from server.py; stays null when the page is opened as a plain file
+const inProgram = !!(window.chrome && window.chrome.webview);   // running inside Grid Planner.exe, which has no posting server
+const isMac = /^mac/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '');
+const UNDO_KEY = isMac ? '⌘Z' : 'Ctrl+Z';
+const onWeb = !!document.querySelector('meta[name="grid-planner-web"]');     // the copy published on the web ("Web version" folder adds this tag)
+const localHost = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+// Automatic posting needs server.py on this computer, started with a Windows .bat file: on a Mac or on the web copy it is only offered if that server is somehow running.
+const offerAuto = () => !inProgram && (!!server || (!isMac && !onWeb));
+const run = { active: false, stop: false, note: '', error: '', delay: 10, noteEl: null };   // a posting run in progress
+const images = new Map();   // id -> {id,name,blob,previewBlob,w,h,url,fullUrl,fullEl}
+let tab = 'edit', views = [], metrics = { dw: 100, dh: 133 }, pick = null, db = null;
+
+// ---------- helpers ----------
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const pad = n => String(n).padStart(2, '0');
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null) continue;
+    if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k === 'style') Object.assign(n.style, v);
+    else if (k === 'dataset') Object.assign(n.dataset, v);
+    else if (k in n) n[k] = v;
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) n.append(kid);
+  return n;
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3600);
+}
+
+// Lock the page while photos are being read or rendered, so nothing can change underneath a slow job.
+let busyCount = 0;
+async function withBusy(msg, fn) {      // fn gets say(text), which changes the message while the job runs
+  const t = $('#toast');
+  let shown = false;
+  const show = setTimeout(() => { shown = true; clearTimeout(toastTimer); t.textContent = msg; t.classList.add('show'); }, 250);
+  const say = text => { msg = text; if (shown) t.textContent = text; };
+  busyCount++; $('header').inert = true; $('main').inert = true;
+  try { return await fn(say); }
+  finally {
+    clearTimeout(show);
+    if (!--busyCount) { $('header').inert = run.active; $('main').inert = false; }
+    if (t.textContent === msg) t.classList.remove('show');
+  }
+}
+
+function download(blob, name) {
+  const a = el('a', { href: URL.createObjectURL(blob), download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 15000);
+}
+
+// ---------- geometry ----------
+// Everything is measured in export pixels. Each post is W×H; the profile grid shows only the
+// centred 3:4 part of it (tw×th). "bleed" is the strip hidden on each side.
+// An item covering w×h tiles gets one continuous area Aw×Ah that the photo is fitted into.
+function fmt() {
+  const f = FORMATS[state.format], tw = f.H * GRID_ASPECT;
+  return { W: f.W, H: f.H, tw, th: f.H, bleed: Math.max(0, (f.W - tw) / 2) };
+}
+// A framed photo sits in a window inside its post instead: then the area is that window, and (ox, oy) is where it starts.
+function geom(it) {
+  const F = fmt(), im = images.get(it.imageId), L = frameLayout(it, F, im);
+  const Aw = L ? L.win.w : it.w * F.tw + 2 * F.bleed, Ah = L ? L.win.h : it.h * F.th;
+  const k = Math.max(Aw / im.w, Ah / im.h) * it.z;          // export px per source px
+  const iw = im.w * k, ih = im.h * k;
+  return { F, L, Aw, Ah, k, iw, ih, ox: L ? L.win.x : 0, oy: L ? L.win.y : 0, x0: Aw / 2 - it.cx * iw, y0: Ah / 2 - it.cy * ih };
+}
+function clampItem(it) {
+  const g = geom(it);
+  const x0 = clamp(g.x0, Math.min(0, g.Aw - g.iw), Math.max(0, g.Aw - g.iw));
+  const y0 = clamp(g.y0, Math.min(0, g.Ah - g.ih), Math.max(0, g.Ah - g.ih));
+  it.cx = (g.Aw / 2 - x0) / g.iw; it.cy = (g.Ah / 2 - y0) / g.ih;
+}
+function zoomAt(it, z, px, py) {
+  z = clamp(z, ZMIN, ZMAX);
+  const g = geom(it), ux = (px - g.x0) / g.iw, uy = (py - g.y0) / g.ih, r = z / it.z;
+  const iw = g.iw * r, ih = g.ih * r;
+  it.z = z; it.cx = (g.Aw / 2 - (px - ux * iw)) / iw; it.cy = (g.Ah / 2 - (py - uy * ih)) / ih;
+  clampItem(it);
+}
+
+// ---------- grid model ----------
+const selItem = () => state.items.find(it => it.id === state.selected) || null;
+const itemAt = (r, c) => state.items.find(it => r >= it.row && r < it.row + it.h && c >= it.col && c < it.col + it.w) || null;
+const overlapping = (row, col, w, h, ignoreId) => state.items.filter(it => it.id !== ignoreId && it.row < row + h && row < it.row + it.h && it.col < col + w && col < it.col + it.w);
+const usedRows = () => state.items.reduce((m, it) => Math.max(m, it.row + it.h), 0);
+function firstFree(from = 0) {
+  for (let i = from; ; i++) { const r = Math.floor(i / COLS), c = i % COLS; if (!itemAt(r, c)) return { r, c, i }; }
+}
+function newItem(imageId, row, col) {
+  const it = { id: uid(), imageId, row, col, w: 1, h: 1, z: 1, cx: 0.5, cy: 0.5, caption: '' };
+  state.items.push(it); return it;
+}
+function clearPosted(it) {
+  for (const map of [state.posted, state.links]) for (const k of Object.keys(map)) if (k.startsWith(it.id + ':')) delete map[k];
+}
+function removeItem(it) {
+  state.items = state.items.filter(x => x !== it); clearPosted(it);
+  if (state.selected === it.id) state.selected = null;
+}
+// Taking a photo off the grid by hand can be undone once (Ctrl+Z, or ⌘Z on a Mac): its crop, caption, frame and ticks come back with it.
+let undo = null;
+function takeOff(it) {
+  const mine = k => k.startsWith(it.id + ':');
+  undo = { it, posted: Object.keys(state.posted).filter(mine), links: Object.entries(state.links).filter(([k]) => mine(k)) };
+  removeItem(it); changed(); toast(`Taken off the grid. ${UNDO_KEY} puts it back.`);
+}
+function putBack() {
+  const u = undo; undo = null;
+  if (!u) return false;
+  if (!images.has(u.it.imageId) || overlapping(u.it.row, u.it.col, u.it.w, u.it.h, u.it.id).length) { toast('Its place on the grid has been taken, so the photo was not put back.'); return true; }
+  state.items.push(u.it);
+  for (const k of u.posted) state.posted[k] = true;
+  for (const [k, v] of u.links) state.links[k] = v;
+  state.selected = u.it.id; tab = 'edit'; changed();
+  return true;
+}
+function swapPhoto(it, imageId) {       // a different photo in the same place: the crop starts over, the words stay
+  it.imageId = imageId; it.z = 1; it.cx = it.cy = 0.5; clearPosted(it);
+  if (it.caption || (it.frame && it.frame.note)) toast('Photo replaced. Its caption and frame line were kept — change them if they no longer fit.');
+}
+function placeAt(imageId, idx, allowReplace) {
+  let r = Math.floor(idx / COLS), c = idx % COLS;
+  const ex = itemAt(r, c);
+  if (ex) {
+    if (allowReplace) { swapPhoto(ex, imageId); return ex; }
+    const f = firstFree(idx); r = f.r; c = f.c;
+  }
+  return newItem(imageId, r, c);
+}
+function placeMany(ids, startIdx, replaceFirst) {
+  let last = null;
+  ids.forEach((id, n) => { last = placeAt(id, startIdx, replaceFirst && n === 0); });
+  if (last) { state.selected = last.id; tab = 'edit'; }
+  changed();
+}
+function moveKind(it, row, col) {
+  if (row === it.row && col === it.col) return 'same';
+  const o = overlapping(row, col, it.w, it.h, it.id);
+  if (!o.length) return 'ok';
+  if (o.length === 1 && o[0].w === it.w && o[0].h === it.h && o[0].row === row && o[0].col === col) return 'swap';
+  return 'bad';
+}
+function applyMove(it, row, col) {
+  const kind = moveKind(it, row, col);
+  if (kind === 'same') return false;
+  if (kind === 'bad') { toast('That spot overlaps a photo of a different size. Move that one out of the way first.'); return false; }
+  if (kind === 'swap') { const o = overlapping(row, col, it.w, it.h, it.id)[0]; o.row = it.row; o.col = it.col; }
+  it.row = row; it.col = col; return true;
+}
+function setSpan(it, w, h) {
+  const prefer = Math.min(it.col, COLS - w);
+  const cols = [prefer, ...[0, 1, 2].filter(c => c !== prefer && c + w <= COLS)];
+  for (const c of cols) {
+    if (!overlapping(it.row, c, w, h, it.id).length) { it.col = c; it.w = w; it.h = h; clampItem(it); clearPosted(it); return true; }
+  }
+  toast('Not enough free tiles there. Move or remove the neighbouring photos first.');
+  return false;
+}
+function tiles() {
+  const out = [];
+  for (const it of state.items) for (let j = 0; j < it.h; j++) for (let i = 0; i < it.w; i++)
+    out.push({ item: it, i, j, r: it.row + j, c: it.col + i, key: `${it.id}:${i}:${j}` });
+  return out;
+}
+// Instagram puts the newest post top-left, so the bottom-right tile is posted first.
+const postingOrder = () => tiles().sort((a, b) => b.r - a.r || b.c - a.c);
+const tileName = (t, n) => `post-${pad(n)}_row${t.r + 1}-col${t.c + 1}.jpg`;
+
+function checks() {
+  const t = tiles(), msgs = [];
+  if (!t.length) return msgs;
+  const occ = new Set(t.map(x => x.r * COLS + x.c));
+  const first = Math.min(...occ), last = Math.max(...occ), start = Math.floor(first / COLS) * COLS;
+  const holes = [];
+  for (let i = start; i <= last; i++) if (!occ.has(i)) holes.push(`row ${Math.floor(i / COLS) + 1}, column ${i % COLS + 1}`);
+  if (holes.length) msgs.push({ level: 'warn', text: `Empty tile${holes.length > 1 ? 's' : ''} inside the layout (${holes.join('; ')}). Instagram never leaves gaps, so every post after one will slide over. Fill the gap or move photos up and left.` });
+  if (t.length % COLS) msgs.push({ level: 'info', text: `${t.length} posts is not a multiple of 3, so the posts already on your profile will shift ${t.length % COLS} place${t.length % COLS > 1 ? 's' : ''} sideways once these go up.` });
+  return msgs;
+}
+
+// ---------- images ----------
+function loadImg(url) {
+  return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('decode')); im.src = url; });
+}
+function downscale(im, max, type) {
+  const s = max / Math.max(im.naturalWidth, im.naturalHeight);
+  const c = el('canvas', { width: Math.round(im.naturalWidth * s), height: Math.round(im.naturalHeight * s) });
+  const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, c.width, c.height);
+  return new Promise(res => c.toBlob(res, type === 'image/png' ? 'image/png' : 'image/jpeg', 0.88));
+}
+let addSeq = 0;
+async function addImage(blob, name, id = uid(), previewBlob = null, added = Date.now() + (addSeq++) / 1000) {
+  const fullUrl = URL.createObjectURL(blob);
+  let im;
+  try { im = await loadImg(fullUrl); } catch (e) { URL.revokeObjectURL(fullUrl); throw e; }
+  const w = im.naturalWidth, h = im.naturalHeight;
+  let url = fullUrl;
+  if (Math.max(w, h) > 2000) {              // big photos get a light on-screen copy; exports use the original
+    previewBlob = previewBlob || await downscale(im, 1600, blob.type);
+    if (previewBlob) url = URL.createObjectURL(previewBlob);
+  } else previewBlob = null;
+  const rec = { id, name: String(name || 'photo'), blob, previewBlob, w, h, url, fullUrl, added, exif: {}, prevEl: im };
+  if (url !== fullUrl) { try { rec.prevEl = await loadImg(url); } catch (e) { /* keep the full-size picture for previews */ } }
+  rec.exif = await readExif(blob);
+  images.set(id, rec); return rec;
+}
+
+// ---------- photo details (EXIF) ----------
+// Reads the shooting details a camera writes into a JPEG. Every read is bounds-checked, and a file
+// this cannot make sense of simply ends up with no details.
+function tiffReader(dv, base, end, le) {
+  const u16 = o => dv.getUint16(o, le), u32 = o => dv.getUint32(o, le), SIZE = [0, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 4, 8, 4];
+  return {
+    u16, u32,
+    str(at, count) {                    // text up to the first zero byte: UTF-8 when it is valid, otherwise byte for byte; no control characters
+      let n = 0; while (n < count && n < 160 && dv.getUint8(at + n)) n++;
+      const bytes = new Uint8Array(dv.buffer, dv.byteOffset + at, n);
+      let s; try { s = new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch (e) { s = String.fromCharCode(...bytes); }
+      return s.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ').replace(/\s+/g, ' ').trim();
+    },
+    rat(at) { const n = u32(at), d = u32(at + 4); return d ? [n, d] : null; },
+    ifd(off, fn) {                      // off counts from base; fn(tag, type, count, where the value sits)
+      const p = base + off;
+      if (!(off > 0) || p + 2 > end) return;
+      const n = u16(p);
+      for (let k = 0; k < n && k < 400; k++) {
+        const q = p + 2 + k * 12;
+        if (q + 12 > end) return;
+        const type = u16(q + 2), count = u32(q + 4), size = (SIZE[type] || 0) * count;
+        if (!size) continue;
+        const at = size <= 4 ? q + 8 : base + u32(q + 8);
+        if (at < base || at + size > end) continue;
+        fn(u16(q), type, count, at);
+      }
+    },
+  };
+}
+function parseExif(dv, base, end, out) {
+  if (base + 8 > end) return;
+  const order = dv.getUint16(base), le = order === 0x4949;
+  if (!le && order !== 0x4D4D) return;
+  const T = tiffReader(dv, base, end, le);
+  let sub = 0, inter = 0, note = null;
+  T.ifd(T.u32(base + 4), (tag, type, count, at) => {
+    if (tag === 0x010F && type === 2) out.make = T.str(at, count);
+    else if (tag === 0x0110 && type === 2) out.model = T.str(at, count);
+    else if (tag === 0x8769 && (type === 4 || type === 13)) sub = T.u32(at);
+  });
+  T.ifd(sub, (tag, type, count, at) => {
+    if (tag === 0x829A && type === 5) out.exposure = T.rat(at);
+    else if (tag === 0x829D && type === 5) { const r = T.rat(at); if (r) out.fnumber = r[0] / r[1]; }
+    else if (tag === 0x8827 && type === 3) out.iso = T.u16(at);
+    else if (tag === 0x9003 && type === 2) out.date = T.str(at, count);
+    else if (tag === 0x920A && type === 5) { const r = T.rat(at); if (r) out.focal = r[0] / r[1]; }
+    else if (tag === 0xA434 && type === 2) out.lens = T.str(at, count);
+    else if (tag === 0xA433 && type === 2) out.lensMake = T.str(at, count);
+    else if (tag === 0xA001 && type === 3) out.colorSpace = T.u16(at);
+    else if (tag === 0xA005 && (type === 4 || type === 13)) inter = T.u32(at);
+    else if (tag === 0x927C) note = { at, count };
+  });
+  T.ifd(inter, (tag, type, count, at) => { if (tag === 0x0001 && type === 2) out.interop = T.str(at, count); });
+  // Fujifilm keeps the film simulation in a block of its own: "FUJIFILM", then a little-endian list whose offsets count from the block's start.
+  if (note && note.count > 12 && T.str(note.at, 8) === 'FUJIFILM') {
+    const M = tiffReader(dv, note.at, Math.min(end, note.at + note.count), true);
+    let film = null, mono = null;
+    M.ifd(M.u32(note.at + 8), (tag, type, count, at) => { if (type !== 3) return; if (tag === 0x1401) film = M.u16(at); else if (tag === 0x1003) mono = M.u16(at); });
+    out.film = FUJI_MONO[mono] || (film != null && FUJI_FILM[film]) || '';
+  }
+}
+async function readExif(blob) {
+  const out = {};
+  try {
+    const buf = await blob.slice(0, 393216).arrayBuffer(), dv = new DataView(buf), n = buf.byteLength;
+    if (n < 4 || dv.getUint16(0) !== 0xFFD8) return out;                 // JPEG files only
+    for (let i = 2; i + 4 <= n && dv.getUint8(i) === 0xFF;) {
+      if (dv.getUint8(i + 1) === 0xFF) { i++; continue; }                // padding in front of a marker
+      const m = dv.getUint8(i + 1), len = dv.getUint16(i + 2);
+      if (m === 0xDA || len < 2) break;
+      const s = i + 4, e = Math.min(n, i + 2 + len);
+      const head = k => { let t = ''; for (let j = 0; j < k && s + j < e; j++) t += String.fromCharCode(dv.getUint8(s + j)); return t; };
+      if (m === 0xE1 && !out.read && head(6) === 'Exif\0\0') { out.read = true; parseExif(dv, s + 6, e, out); }
+      else if (m === 0xE2 && head(12) === 'ICC_PROFILE\0') out.icc = true;
+      i += 2 + len;
+    }
+    // Adobe RGB with no colour profile in the file: browsers and Instagram read it as sRGB, which flattens the colours.
+    out.flat = (out.colorSpace === 0xFFFF || out.interop === 'R03') && !out.icc;
+  } catch (e) { /* unreadable details are simply left out */ }
+  return out;
+}
+// The details as they are shown: brand, model, lens, settings, film simulation, date.
+function shotInfo(rec) {
+  const e = (rec && rec.exif) || {}, raw = e.model || '', up = raw.toUpperCase();
+  let brand = (e.make || '').split(/\s+/)[0].toUpperCase();
+  // "Canon" + "Canon EOS R6" is shown as CANON EOS R6; a model that is only the brand, or already starts with it ("OM" + "OM-1"), is not doubled
+  const model = up === brand ? '' : brand && up.startsWith(brand + ' ') ? raw.slice(brand.length + 1).trim() : raw;
+  if (brand && model.toUpperCase().startsWith(brand)) brand = '';
+  const num = (v, places = 1) => String(Math.round(v * 10 ** places) / 10 ** places), settings = [];
+  if (e.focal > 0) settings.push(num(e.focal) + 'mm');
+  if (e.fnumber > 0) settings.push('f/' + num(e.fnumber, e.fnumber < 2 ? 2 : 1));          // f/0.95 must not turn into f/1
+  if (e.exposure) { const v = e.exposure[0] / e.exposure[1]; if (v > 0) settings.push(v >= 0.3 ? num(v) + 's' : `1/${Math.round(1 / v)}s`); }
+  if (e.iso > 0) settings.push('ISO ' + e.iso);
+  const d = /^(\d{4})[:\-](\d{2})[:\-](\d{2})/.exec(e.date || ''), okDate = d && +d[1] >= 1900 && +d[2] >= 1 && +d[2] <= 12 && +d[3] >= 1 && +d[3] <= 31;
+  // a lens from another maker gets that maker's name in front ("VILTROX AF 27/1.2 XF"); the camera maker's own lenses don't need it
+  const lensMake = (e.lensMake || '').toUpperCase(), bare = e.lens || '';
+  const lens = bare && lensMake && lensMake !== (e.make || '').split(/\s+/)[0].toUpperCase() && !bare.toUpperCase().startsWith(lensMake) ? `${lensMake} ${bare}` : bare;
+  return { brand, model, camera: [brand, model].filter(Boolean).join(' '), lens, settings, film: e.film || '',
+    date: okDate ? `${+d[3]} ${MONTHS[+d[2] - 1]} ${d[1]}` : '' };
+}
+
+// ---------- frames ----------
+// A frame puts a photo that fills one post into a window, with its details written in the margin.
+// Sizes below are for a 1080-wide post and scale with it (u).
+const newFrame = () => ({ style: '', fit: 'whole', back: 'fill', blur: 40, camera: true, lens: true, settings: true, film: true, date: false, note: '' });
+const framed = it => !!(it.frame && Object.hasOwn(FRAMES, it.frame.style) && it.w === 1 && it.h === 1);
+const hexRGB = hex => { const n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+const mixHex = (a, b, t) => { const q = hexRGB(b); return '#' + hexRGB(a).map((v, i) => Math.round(v + (q[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
+// Dark enough that light writing reads better on it than dark writing (the point where the two contrasts are equal).
+const isDark = hex => { const [r, g, b] = hexRGB(hex).map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.19; };
+// A blurred border is the photo itself, enlarged to cover the whole post and blurred. It is worked out on a small
+// copy (the stronger the blur, the smaller the copy can be) and stretched when drawn. sigma is in post pixels;
+// (sw, sh) is the photo's shape; maxScale caps the copy's size against the post's.
+function gaussBlur(d, w, h, sigma) {      // d: RGBA bytes, blurred in place; past the edge counts as the edge pixel
+  if (sigma < 0.25) return;
+  const r = Math.ceil(sigma * 3), k = new Float32Array(2 * r + 1), n = w * h, a = new Float32Array(n * 3), b = new Float32Array(n * 3);
+  let sum = 0;
+  for (let i = -r; i <= r; i++) sum += k[i + r] = Math.exp(-i * i / (2 * sigma * sigma));
+  for (let i = 0; i < k.length; i++) k[i] /= sum;
+  for (let i = 0, p = 0, q = 0; i < n; i++, p += 4, q += 3) { a[q] = d[p]; a[q + 1] = d[p + 1]; a[q + 2] = d[p + 2]; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let R = 0, G = 0, B = 0;
+    for (let i = -r; i <= r; i++) { const q = (y * w + Math.min(w - 1, Math.max(0, x + i))) * 3, kv = k[i + r]; R += kv * a[q]; G += kv * a[q + 1]; B += kv * a[q + 2]; }
+    const o = (y * w + x) * 3; b[o] = R; b[o + 1] = G; b[o + 2] = B;
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let R = 0, G = 0, B = 0;
+    for (let i = -r; i <= r; i++) { const q = (Math.min(h - 1, Math.max(0, y + i)) * w + x) * 3, kv = k[i + r]; R += kv * b[q]; G += kv * b[q + 1]; B += kv * b[q + 2]; }
+    const p = (y * w + x) * 4; d[p] = R; d[p + 1] = G; d[p + 2] = B; d[p + 3] = 255;
+  }
+}
+function makeBack(src, sw, sh, F, sigma, maxScale) {
+  const ws = Math.min(maxScale, 4 / Math.max(sigma, 0.001));       // small enough that the blur is about 4 pixels wide on the copy
+  const w = Math.max(16, Math.round(F.W * ws)), h = Math.max(16, Math.round(F.H * ws)), k = Math.max(w / sw, h / sh);
+  const canvas = el('canvas', { width: w, height: h }), x = canvas.getContext('2d', { willReadFrequently: true });
+  x.fillStyle = state.bg; x.fillRect(0, 0, w, h);                   // see-through parts of a PNG take the fill color
+  x.imageSmoothingQuality = 'high'; x.drawImage(src, (w - sw * k) / 2, (h - sh * k) / 2, sw * k, sh * k);
+  const id = x.getImageData(0, 0, w, h);
+  gaussBlur(id.data, w, h, sigma * w / F.W); x.putImageData(id, 0, 0);
+  return { canvas, data: id.data, w, h, tones: {} };
+}
+const backs = new WeakMap();            // photo -> the blurred copies last drawn on screen
+function screenBack(rec, F, sigma) {
+  const key = [F.W, F.H, sigma, state.bg].join(':');
+  let list = backs.get(rec); if (!list) backs.set(rec, list = new Map());
+  let hit = list.get(key);
+  if (!hit) { hit = makeBack(rec.prevEl, rec.w, rec.h, F, sigma, 0.3); list.set(key, hit); while (list.size > 3) list.delete(list.keys().next().value); }
+  return hit;
+}
+// The copy's average color between two heights of the post, inside the part the profile grid shows: what the writing sits on.
+function backTone(b, F, top, bottom) {
+  let y0 = clamp(Math.floor(top / F.H * b.h), 0, b.h - 1), y1 = clamp(Math.ceil(bottom / F.H * b.h), 0, b.h);
+  if (y1 - y0 < 1) { y0 = Math.floor(b.h * 0.88); y1 = b.h; }
+  const key = y0 + ':' + y1; if (b.tones[key]) return b.tones[key];
+  const x0 = Math.min(Math.floor(F.bleed / F.W * b.w), Math.floor(b.w / 2) - 1), x1 = b.w - x0, sum = [0, 0, 0];
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const p = (y * b.w + x) * 4; sum[0] += b.data[p]; sum[1] += b.data[p + 1]; sum[2] += b.data[p + 2]; }
+  const n = Math.max(1, (y1 - y0) * (x1 - x0));
+  return b.tones[key] = '#' + sum.map(v => Math.round(v / n).toString(16).padStart(2, '0')).join('');
+}
+function frameLayout(it, F, im) {
+  if (!framed(it)) return null;
+  const f = it.frame, s = shotInfo(im), u = F.W / 1080, join = (parts, sep) => parts.filter(Boolean).join(sep);
+  const t = { brand: f.camera ? s.brand : '', model: f.camera ? s.model : '', camera: f.camera ? s.camera : '', lens: f.lens ? s.lens : '',
+    settings: f.settings ? s.settings : [], film: f.film ? s.film : '', date: f.date ? s.date : '', note: (f.note || '').trim() };
+  const back = f.style === 'film' ? 'film' : Object.hasOwn(BACKS, f.back) ? f.back : 'fill';
+  const L = { style: f.style, u, paper: back === 'white' ? '#ffffff' : back === 'black' ? '#000000' : state.bg };
+  let side = 0, top = 0, bottom = 0, above = 0, below = 0;      // margins, and the room the writing needs above and below the photo
+  if (f.style === 'mat') {
+    L.rows = [t.camera.toUpperCase(), join([t.lens, ...t.settings], '     '), join([t.film, t.date, t.note], '   ·   ')];
+    L.rowH = [38 * u, 34 * u, 32 * u];
+    side = top = bottom = 64 * u;
+    below = L.rows.reduce((sum, row, n) => sum + (row ? L.rowH[n] : 0), 0); if (below) below += 34 * u;
+  } else if (f.style === 'thin') {
+    L.rows = [join([t.camera, t.lens, ...t.settings, t.film, t.date, t.note], '  ·  ')];
+    side = top = bottom = 36 * u; below = L.rows[0] ? 50 * u : 0;
+  } else if (f.style === 'bar') {
+    L.left = [t.model, join([t.date, t.note], '  ·  ')]; L.right = [t.settings.join('   '), join([t.lens, t.film], '  ·  ')]; L.brand = t.brand;
+    below = L.barH = L.left.some(Boolean) || L.right.some(Boolean) ? 128 * u : 0;
+  } else {                              // film edge: always dark, with the amber print of a film border
+    L.paper = '#0f0f0e'; L.ink = L.dim = '#f0a63a';
+    L.top = [t.camera.toUpperCase(), t.lens.toUpperCase()]; L.bottom = [t.settings.join('  ').toUpperCase(), join([t.film, t.date, t.note], '  ·  ').toUpperCase()];
+    side = 46 * u; top = bottom = 40 * u; above = L.top.some(Boolean) ? 40 * u : 0; below = L.bottom.some(Boolean) ? 40 * u : 0;
+  }
+  const bw = F.W - 2 * side, a = im.w / im.h;
+  let bh, w, h;
+  const fitIn = () => { bh = F.H - top - bottom - above - below; w = bw; h = bh; if (f.fit !== 'fill') { if (bw / bh > a) w = bh * a; else h = bw / a; } };
+  fitIn();
+  if (f.style === 'bar' && w < bw - 1) { top = 44 * u; fitIn(); }      // an upright photo doesn't reach the sides, so it shouldn't touch the top either
+  w = Math.max(8, Math.round(w)); h = Math.max(8, Math.round(h));      // an extreme panorama still gets a window worth the name
+  L.win = { x: Math.round((F.W - w) / 2), y: Math.round(top + above + (bh - h) / 2), w, h };
+  L.safe = F.bleed + 12 * u;            // writing stays this far from the sides, inside the part the profile grid shows
+  if (back === 'blur') {                // the border is the photo again, blurred; the writing takes its tone from what lies under it
+    L.sigma = BLUR_MAX * (Number.isFinite(+f.blur) ? clamp(+f.blur, 0, 100) : 40) / 100 * u;
+    L.back = screenBack(im, F, L.sigma);
+    L.paper = backTone(L.back, F, L.win.y + L.win.h, L.win.y + L.win.h + Math.max(below, 60 * u));
+  }
+  if (back !== 'film') {                // light writing on a dark border, dark writing on a light one; the quieter lines sit part-way to the paper color
+    const dark = isDark(L.paper);
+    L.ink = dark ? '#ffffff' : '#1d1d1b'; L.dim = mixHex(L.ink, L.paper, L.back ? 0.18 : 0.42);
+    if (L.back) L.glow = dark ? 'rgba(0,0,0,.5)' : 'rgba(255,255,255,.6)';      // a soft edge keeps the writing readable where the blur is uneven
+  }
+  return L;
+}
+function setType(x, o, size) {
+  size = Math.max(1, size);
+  x.font = `${o.weight || 400} ${size}px ${o.family || SANS}`;
+  if ('letterSpacing' in x) x.letterSpacing = ((o.track || 0) * size).toFixed(2) + 'px';
+}
+function lineWidth(x, str, o) { if (!str) return 0; setType(x, o, o.size); return x.measureText(str).width; }
+function drawLine(x, str, px, py, o, max, align) {       // one line, shrunk when it would be wider than max
+  if (!str) return;
+  let size = o.size; setType(x, o, size);
+  const w = x.measureText(str).width;
+  if (max && w > max) {
+    size = Math.max(o.size * 0.5, o.size * max / w); setType(x, o, size);
+    while (str.length > 1 && x.measureText(str).width > max) str = str.slice(0, -2).trimEnd() + '…';     // still too long at half size: cut it short
+  }
+  const trail = (o.track || 0) * size;                   // letter spacing also trails the last letter; keep the text optically in place
+  x.fillStyle = o.color; x.textAlign = align || 'left';
+  x.fillText(str, px + (align === 'center' ? trail / 2 : align === 'right' ? trail : 0), py);
+}
+function drawFrameText(x, L, F) {
+  const u = L.u, w = L.win, mid = F.W / 2;
+  x.save(); x.textBaseline = 'alphabetic';
+  if (L.glow) { x.shadowColor = L.glow; x.shadowBlur = 7 * u * x.getTransform().a; }      // shadows ignore the drawing scale, so it is put in by hand
+  if (L.style === 'mat') {
+    const type = [{ size: 24 * u, weight: 600, track: 0.16, color: L.ink }, { size: 21 * u, track: 0.03, color: L.dim }, { size: 20 * u, track: 0.03, color: L.dim }];
+    let y = w.y + w.h + 34 * u;
+    L.rows.forEach((row, n) => { if (!row) return; drawLine(x, row, mid, y + L.rowH[n] * 0.72, type[n], F.W - 2 * Math.max(64 * u, L.safe), 'center'); y += L.rowH[n]; });
+  } else if (L.style === 'thin') {
+    drawLine(x, L.rows[0], mid, w.y + w.h + 41 * u, { size: 19 * u, track: 0.04, color: L.dim }, F.W - 2 * Math.max(36 * u, L.safe), 'center');
+  } else if (L.style === 'bar' && L.barH) {
+    const big = { size: 31 * u, weight: 650, color: L.ink }, vals = { size: 26 * u, weight: 600, color: L.ink }, small = { size: 20 * u, track: 0.02, color: L.dim }, mark = { size: 22 * u, weight: 800, track: 0.1, color: L.ink };
+    const bw = Math.max(w.w, 600 * u), bx = (F.W - bw) / 2;       // the bar is as wide as the photo, but never too narrow to write on
+    const pad = Math.max(46 * u, L.safe - bx), room = bw - 2 * pad, gap = 36 * u, mgap = 22 * u, [l1, l2] = L.left, [r1, r2] = L.right;
+    const lw = Math.max(lineWidth(x, l1, big), lineWidth(x, l2, small)), rw = Math.max(lineWidth(x, r1, vals), lineWidth(x, r2, small)), mw = lineWidth(x, L.brand, mark);
+    const need = withMark => lw + rw + (withMark ? mw + (rw ? 2 * mgap : 0) : 0) + (lw && (rw || withMark) ? gap : 0);
+    const showMark = !!L.brand && need(true) <= room;       // the brand name is the first thing to go when room is short
+    const s = clamp(room / Math.max(1, need(showMark)), 0.3, 1), sc = o => ({ ...o, size: o.size * s });
+    const cy = w.y + w.h + L.barH / 2;
+    const block = (a, b, ta, px, align) => {
+      if (a && b) { drawLine(x, a, px, cy - 5 * u * s, sc(ta), 0, align); drawLine(x, b, px, cy + 27 * u * s, sc(small), 0, align); }
+      else if (a) drawLine(x, a, px, cy + ta.size * s * 0.36, sc(ta), 0, align);
+      else if (b) drawLine(x, b, px, cy + small.size * s * 0.36, sc(small), 0, align);
+    };
+    block(l1, l2, big, bx + pad, 'left');
+    const right = bx + bw - pad;
+    if (showMark && rw) {
+      const rx = right - rw * s, bar = rx - mgap * s;
+      block(r1, r2, vals, rx, 'left');
+      x.globalAlpha = 0.55; x.fillStyle = L.dim; x.fillRect(bar - 0.75 * u, cy - 26 * u * s, 1.5 * u, 52 * u * s); x.globalAlpha = 1;
+      drawLine(x, L.brand, bar - mgap * s, cy + mark.size * s * 0.36, sc(mark), 0, 'right');
+    } else {
+      block(r1, r2, vals, right, 'right');
+      if (showMark) drawLine(x, L.brand, right, cy + mark.size * s * 0.36, sc(mark), 0, 'right');
+    }
+  } else if (L.style === 'film') {
+    const o = { size: 18 * u, weight: 600, family: MONO, track: 0.12, color: L.ink };
+    const rx = Math.max((F.W - (w.w >= 560 * u ? w.w : F.W - 92 * u)) / 2, L.safe), rw = F.W - 2 * rx;      // the print lines up with the photo unless the photo is too narrow to write along
+    const pair = (a, b, y, arrow) => {
+      const lead = arrow && a ? 22 * u : 0, need = lineWidth(x, a, o) + lineWidth(x, b, o) + lead + (a && b ? 28 * u : 0);
+      const s = clamp(rw / Math.max(1, need), 0.3, 1), t = { ...o, size: o.size * s };
+      if (lead) { x.fillStyle = L.ink; x.beginPath(); x.moveTo(rx, y - 12.5 * u * s); x.lineTo(rx + 11 * u * s, y - 6.25 * u * s); x.lineTo(rx, y); x.fill(); }
+      drawLine(x, a, rx + lead * s, y, t); drawLine(x, b, rx + rw, y, t, 0, 'right');
+    };
+    pair(L.top[0], L.top[1], w.y - 15 * u, false);
+    pair(L.bottom[0], L.bottom[1], w.y + w.h + 28 * u, true);
+  }
+  x.restore();
+}
+// The whole framed post in post pixels, drawn quickly for the previews. src is any drawable copy of the photo.
+function paintPost(x, g, src) {
+  const L = g.L, F = g.F, w = L.win;
+  x.fillStyle = L.paper; x.fillRect(0, 0, F.W, F.H);
+  if (L.back) { x.imageSmoothingQuality = 'high'; x.drawImage(L.back.canvas, 0, 0, F.W, F.H); }
+  if (src) {
+    x.save(); x.beginPath(); x.rect(w.x, w.y, w.w, w.h); x.clip();
+    x.imageSmoothingQuality = 'high'; x.drawImage(src, w.x + g.x0, w.y + g.y0, g.iw, g.ih); x.restore();
+  }
+  drawFrameText(x, L, F);
+}
+// ---------- zip files (what the Download button on photos.google.com gives for several photos) ----------
+// The table of contents at the end of the zip is read first; then the photos are unpacked one at a time,
+// so even a zip of hundreds of photos never has to sit in memory whole. Stored and deflated entries, and
+// ZIP64 for zips over 4 GB, are understood; anything else in the zip is passed over.
+const PHOTO_NAME = /\.(jpe?g|png|webp|heic|heif|avif|gif)$/i, VIDEO_NAME = /\.(mp4|mov|m4v|3gp|avi|mkv|webm|mts|m2ts|wmv)$/i;
+const PHOTO_TYPE = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif', avif: 'image/avif', gif: 'image/gif' };
+const isZip = f => /\.zip$/i.test(f.name) || /(^|\/)(x-)?zip(-compressed)?$/i.test(f.type);
+const isVideo = f => VIDEO_NAME.test(f.name) || /^video\//.test(f.type);
+const baseName = path => path.split('/').pop();
+async function zipEntries(file) {
+  const tailLen = Math.min(file.size, 22 + 65535 + 20);     // end record, the longest comment it may carry, the ZIP64 pointer before it
+  const tail = new DataView(await file.slice(file.size - tailLen).arrayBuffer());
+  let e = -1;
+  for (let i = tailLen - 22; i >= 0; i--) if (tail.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error(file.size ? 'incomplete' : 'empty');
+  let count = tail.getUint16(e + 10, true), cdSize = tail.getUint32(e + 12, true), cdOff = tail.getUint32(e + 16, true);
+  if (e >= 20 && tail.getUint32(e - 20, true) === 0x07064b50) {            // ZIP64: the real numbers are in a record further back
+    const at = Number(tail.getBigUint64(e - 20 + 8, true)), r = new DataView(await file.slice(at, at + 56).arrayBuffer());
+    if (r.byteLength < 56 || r.getUint32(0, true) !== 0x06064b50) throw new Error('incomplete');
+    count = Number(r.getBigUint64(32, true)); cdSize = Number(r.getBigUint64(40, true)); cdOff = Number(r.getBigUint64(48, true));
+  }
+  if (cdOff + cdSize > file.size) throw new Error('incomplete');
+  const cd = new DataView(await file.slice(cdOff, cdOff + cdSize).arrayBuffer()), out = [];
+  const utf8 = new TextDecoder('utf-8', { fatal: true }), latin = new TextDecoder('windows-1252');
+  for (let p = 0, n = 0; n < count; n++) {
+    if (p + 46 > cd.byteLength || cd.getUint32(p, true) !== 0x02014b50) throw new Error('incomplete');
+    const flags = cd.getUint16(p + 8, true), method = cd.getUint16(p + 10, true), nl = cd.getUint16(p + 28, true), xl = cd.getUint16(p + 30, true), cl = cd.getUint16(p + 32, true);
+    let csize = cd.getUint32(p + 20, true), usize = cd.getUint32(p + 24, true), local = cd.getUint32(p + 42, true);
+    for (let q = p + 46 + nl, end = q + xl; q + 4 <= end;) {                 // ZIP64 sizes, for files over 4 GB or far into the zip
+      const id = cd.getUint16(q, true), len = cd.getUint16(q + 2, true);
+      if (id === 0x0001) {
+        let r = q + 4;
+        if (usize === 0xFFFFFFFF) { usize = Number(cd.getBigUint64(r, true)); r += 8; }
+        if (csize === 0xFFFFFFFF) { csize = Number(cd.getBigUint64(r, true)); r += 8; }
+        if (local === 0xFFFFFFFF) { local = Number(cd.getBigUint64(r, true)); r += 8; }
+      }
+      q += 4 + len;
+    }
+    const raw = new Uint8Array(cd.buffer, cd.byteOffset + p + 46, nl);
+    let name; try { name = utf8.decode(raw); } catch (err) { name = latin.decode(raw); }      // old zips without UTF-8 names
+    out.push({ name: name.replace(/\\/g, '/'), method, csize, usize, local, locked: !!(flags & 1) });
+    p += 46 + nl + xl + cl;
+  }
+  return out;
+}
+async function zipPhoto(file, en) {
+  const h = new DataView(await file.slice(en.local, en.local + 30).arrayBuffer());
+  if (h.byteLength < 30 || h.getUint32(0, true) !== 0x04034b50) throw new Error('incomplete');
+  const start = en.local + 30 + h.getUint16(26, true) + h.getUint16(28, true), name = baseName(en.name);
+  let blob = file.slice(start, start + en.csize);
+  if (en.method === 8) blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob();
+  else if (en.method !== 0) throw new Error('method');
+  if (blob.size !== en.usize) throw new Error('incomplete');
+  return new File([blob], name, { type: PHOTO_TYPE[name.split('.').pop().toLowerCase()] || '' });
+}
+const canUnzip = (() => { try { new DecompressionStream('deflate-raw'); return true; } catch (e) { return false; } })();
+
+// What a drop holds: files, plus the photos inside any folder dropped (Safari on a Mac unzips downloads into a folder).
+// The folder list has to be taken before the first pause, while the drop is still current.
+function droppedFiles(dt) {
+  const items = [...(dt.items || [])].filter(i => i.kind === 'file'), entries = items.map(i => i.webkitGetAsEntry ? i.webkitGetAsEntry() : null);
+  if (!entries.some(en => en && en.isDirectory)) return Promise.resolve([...dt.files]);
+  const out = [];
+  const walk = async en => {
+    if (!en || en.name.startsWith('.')) return;
+    if (en.isFile) {
+      if (PHOTO_NAME.test(en.name) || VIDEO_NAME.test(en.name) || /\.zip$/i.test(en.name)) out.push(await new Promise((res, rej) => en.file(res, rej)));
+      return;
+    }
+    const reader = en.createReader();
+    for (let batch; (batch = await new Promise((res, rej) => reader.readEntries(res, rej))).length;) for (const c of batch) await walk(c);
+  };
+  return (async () => { for (const en of entries) await walk(en); return out; })();
+}
+
+async function importFiles(files) {
+  const added = [], failed = [], zipNotes = [], zips = files.filter(isZip);
+  let videos = 0;
+  const jobs = [];                       // { name, get(): the photo as a File }
+  const first = zips.length ? `Opening ${zips[0].name}…` : `Adding ${files.length} photo${files.length > 1 ? 's' : ''}…`;
+  await withBusy(first, async say => {
+    for (const f of files) {
+      if (isVideo(f)) { videos++; continue; }
+      if (!isZip(f)) { jobs.push({ name: f.name, get: async () => f }); continue; }
+      if (!canUnzip) { zipNotes.push(`This browser can't open zip files, so ${f.name} was not read. Unzip it first and add the photos inside.`); continue; }
+      say(`Opening ${f.name}…`);
+      try {
+        let found = 0;
+        for (const en of await zipEntries(f)) {
+          const name = baseName(en.name);
+          if (!name || en.name.endsWith('/') || name.startsWith('._') || /(^|\/)__MACOSX\//.test(en.name)) continue;
+          if (VIDEO_NAME.test(name)) { videos++; continue; }
+          if (!PHOTO_NAME.test(name)) continue;
+          found++;
+          if (en.locked) { failed.push(name); continue; }
+          jobs.push({ name, get: () => zipPhoto(f, en) });
+        }
+        if (!found) zipNotes.push(`There are no photos in ${f.name}.`);
+      } catch (e) {
+        zipNotes.push(e.message === 'incomplete' || e.message === 'empty'
+          ? `${f.name} could not be read — it may still be downloading. Wait until the download has finished and add it again.`
+          : `${f.name} could not be read.`);
+      }
+    }
+    for (let i = 0; i < jobs.length; i++) {
+      if (jobs.length > 3) say(`Adding photo ${i + 1} of ${jobs.length}…`);
+      try { const f = await jobs[i].get(); const rec = await addImage(f, f.name); added.push(rec); dbPutImage(rec); }
+      catch (e) { failed.push(jobs[i].name); }
+    }
+  });
+  const msgs = [...zipNotes];
+  if (failed.length) msgs.push(`Couldn't open ${failed.length} file${failed.length > 1 ? 's' : ''} (${failed.slice(0, 2).join(', ')}${failed.length > 2 ? '…' : ''}). Use JPG, PNG or WebP — HEIC photos need converting first${isMac ? ' (open them in Preview, then File → Export → JPEG)' : ''}.`);
+  if (videos) msgs.push(`${videos} video${videos > 1 ? 's were' : ' was'} left out — the planner works with photos only.`);
+  if (zips.length && added.length) msgs.unshift(`Added ${added.length} photo${added.length > 1 ? 's' : ''} from ${zips.length > 1 ? `${zips.length} zip files` : zips[0].name}.`);
+  if (msgs.length) toast(msgs.join(' '));
+  return added;
+}
+function removeImage(id) {
+  const rec = images.get(id); if (!rec) return;
+  for (const it of state.items.filter(x => x.imageId === id)) removeItem(it);
+  URL.revokeObjectURL(rec.fullUrl); if (rec.url !== rec.fullUrl) URL.revokeObjectURL(rec.url);
+  if (fullPic.id === id) fullPic = { id: null, el: null };
+  if (undo && undo.it.imageId === id) undo = null;
+  images.delete(id); dbDelImage(id);
+}
+
+// ---------- slice views (a positioned <img> inside a clipping box) ----------
+function positionView(v, it) {
+  const g = geom(it), F = g.F;
+  if (v.canvas) {                       // a framed photo: redraw its post (the grid shows only the middle part)
+    if (!g.L) return;
+    const x = v.canvas.getContext('2d'), s = v.canvas.width / (v.mode === 'grid' ? F.tw : F.W);
+    x.setTransform(s, 0, 0, s, v.mode === 'grid' ? -F.bleed * s : 0, 0);
+    paintPost(x, g, images.get(it.imageId).prevEl);
+    return;
+  }
+  const ox = v.mode === 'grid' ? F.bleed + v.i * F.tw : v.mode === 'post' ? v.i * F.tw : 0;
+  const oy = v.mode === 'area' ? 0 : v.j * F.th;
+  v.img.style.width = g.iw * v.f + 'px'; v.img.style.height = g.ih * v.f + 'px';
+  v.img.style.transform = `translate(${(g.x0 - ox) * v.f}px,${(g.y0 - oy) * v.f}px)`;
+}
+function attachView(box, it, i, j, f, mode) {
+  if (framed(it)) {
+    const dpr = window.devicePixelRatio || 1;
+    const canvas = el('canvas', { width: Math.max(1, Math.round(parseFloat(box.style.width) * dpr)), height: Math.max(1, Math.round(parseFloat(box.style.height) * dpr)) });
+    box.append(canvas);
+    const v = { canvas, itemId: it.id, i, j, f, mode }; views.push(v); positionView(v, it);
+    return;
+  }
+  const img = el('img', { src: images.get(it.imageId).url, draggable: false, alt: '' });
+  box.append(img);
+  const v = { img, itemId: it.id, i, j, f, mode }; views.push(v); positionView(v, it);
+}
+function sliceEl(it, i, j, dw, mode) {      // mode 'grid' = what the profile shows, 'post' = the whole post
+  const F = fmt(), f = dw / (mode === 'grid' ? F.tw : F.W);
+  const box = el('div', { class: 'slice', style: { width: dw + 'px', height: F.H * f + 'px' } });
+  attachView(box, it, i, j, f, mode); return box;
+}
+function repositionItem(it) { for (const v of views) if (v.itemId === it.id) positionView(v, it); }
+
+// ---------- rendering ----------
+const grid = $('#grid');
+function renderGrid() {
+  state.rows = Math.max(4, usedRows() + 1);
+  const avail = clamp($('#gridWrap').clientWidth, 240, 468);
+  const dw = Math.floor((avail - GAP * (COLS - 1)) / COLS), dh = dw / GRID_ASPECT;
+  metrics = { dw, dh };
+  grid.style.width = dw * COLS + GAP * (COLS - 1) + 'px';
+  grid.style.height = state.rows * dh + (state.rows - 1) * GAP + 'px';
+  grid.replaceChildren();
+  const order = new Map(postingOrder().map((t, n) => [t.r * COLS + t.c, { n: n + 1, key: t.key }]));
+  for (let r = 0; r < state.rows; r++) for (let c = 0; c < COLS; c++) {
+    const cell = el('div', { class: 'cell', dataset: { r, c }, style: { left: c * (dw + GAP) + 'px', top: r * (dh + GAP) + 'px', width: dw + 'px', height: dh + 'px' } });
+    const it = itemAt(r, c);
+    if (it) {
+      const o = order.get(r * COLS + c);
+      cell.classList.add('filled');
+      cell.title = images.get(it.imageId).name;
+      cell.append(sliceEl(it, c - it.col, r - it.row, dw, 'grid'));
+      if (state.posted[o.key]) cell.classList.add('posted');
+      if (state.showOrder) cell.append(el('span', { class: 'badge', text: state.posted[o.key] ? '✓' : o.n }));
+    } else {
+      cell.title = 'Click to add a photo here';
+      cell.append(el('span', { class: 'plus', text: '+' }));
+    }
+    grid.append(cell);
+  }
+  const s = selItem();
+  if (s) grid.append(el('div', { class: 'selbox', style: {
+    left: s.col * (dw + GAP) - 2 + 'px', top: s.row * (dh + GAP) - 2 + 'px',
+    width: s.w * dw + (s.w - 1) * GAP + 4 + 'px', height: s.h * dh + (s.h - 1) * GAP + 4 + 'px' } }));
+  $('#checks').replaceChildren(...checks().map(m => el('div', { class: 'msg ' + m.level, text: m.text })));
+}
+
+function renderLibrary() {
+  const list = $('#libList'); list.replaceChildren();
+  let unused = 0;
+  for (const rec of images.values()) {
+    const used = state.items.filter(it => it.imageId === rec.id).length;
+    if (!used) unused++;
+    const card = el('div', { class: 'thumb', draggable: true, title: `${rec.name} · ${rec.w}×${rec.h}\nDrag onto the grid, or double-click to place` },
+      el('img', { src: rec.url, alt: '', draggable: false }),
+      used ? el('span', { class: 'usedTag', text: used > 1 ? `on grid ×${used}` : 'on grid' }) : null,
+      el('button', { class: 'x', title: 'Remove this photo', text: '×', 'aria-label': 'Remove ' + rec.name, onclick: e => {
+        e.stopPropagation();
+        if (used && !confirm(`"${rec.name}" is on the grid. Remove it from the grid and the photo list?`)) return;
+        removeImage(rec.id); changed();
+      } }));
+    card.addEventListener('dragstart', e => { e.dataTransfer.setData('application/x-grid-image', rec.id); e.dataTransfer.effectAllowed = 'copy'; });
+    card.addEventListener('dblclick', () => placeMany([rec.id], 0, false));
+    list.append(card);
+  }
+  $('#libCount').textContent = images.size ? `${images.size}` : '';
+  $('#libEmpty').hidden = images.size > 0;
+  $('#btnPlaceAll').hidden = !unused;
+  $('#btnPlaceAll').textContent = `Place ${unused} unused photo${unused > 1 ? 's' : ''}`;
+}
+
+const sliderFromZ = z => Math.round(1000 * Math.log(z / ZMIN) / Math.log(ZMAX / ZMIN));
+const zFromSlider = s => ZMIN * Math.pow(ZMAX / ZMIN, s / 1000);
+
+function helpEl() {
+  return el('div', { class: 'help' },
+    el('p', { class: 'muted', text: 'Select a photo on the grid to crop it or spread it across several tiles.' }),
+    el('h3', { text: 'How it works' }),
+    el('ol', null,
+      el('li', { text: 'Add photos, then drag them onto the grid (or click an empty tile).' }),
+      el('li', { text: `From Google Photos: select the photos on photos.google.com and press Shift+D. Drag the zip that downloads onto this page, or pick it with “Add photos” — no need to unzip it.${isMac ? ' If Safari unzips it into a folder, drag the folder in instead.' : ''}` }),
+      el('li', { text: 'Click a photo and choose how many columns and rows it should cover. Drag inside the editor to reposition, scroll to zoom.' }),
+      el('li', { text: 'Drag photos around the grid until the layout looks right.' }),
+      el('li', { text: 'Open “Posting order” and post the tiles one at a time, starting from #1.' })),
+    el('h3', { text: 'Good to know' }),
+    el('ul', null,
+      el('li', { text: 'Instagram shows the newest post top-left, so the bottom-right tile is posted first. The numbers on the grid show the order.' }),
+      el('li', { text: 'A photo that fills one post can carry a frame with its camera details. Select it and pick a style under “Frame with photo details”. The border can be white, black, or a blurred copy of the photo.' }),
+      el('li', { text: 'Post in multiples of 3 to keep the rows already on your profile lined up.' }),
+      el('li', { text: 'Pinned posts and Reels take up grid tiles too — unpin while a split picture is at the top of your profile.' })));
+}
+
+function renderEditor(pane) {
+  const it = selItem();
+  if (!it) { pane.append(helpEl()); return; }
+  const rec = images.get(it.imageId), g = geom(it), F = g.F;
+  const bw = g.L ? F.W : g.Aw, bh = g.L ? F.H : g.Ah;            // a framed photo is edited on its whole post
+  const fe = Math.min(Math.max(200, pane.clientWidth || 300) / bw, clamp(window.innerHeight - 480, 220, 440) / bh);
+  const box = el('div', { class: 'cropper', style: { width: bw * fe + 'px', height: bh * fe + 'px' } });
+  attachView(box, it, 0, 0, fe, 'area');
+  if (F.bleed > 0) box.append(
+    el('div', { class: 'bleed', style: { left: 0, width: F.bleed * fe + 'px' } }),
+    el('div', { class: 'bleed', style: { right: 0, width: F.bleed * fe + 'px' } }));
+  for (let i = 1; i < it.w; i++) box.append(el('div', { class: 'vline', style: { left: (F.bleed + i * F.tw) * fe + 'px' } }));
+  for (let j = 1; j < it.h; j++) box.append(el('div', { class: 'hline', style: { top: j * F.th * fe + 'px' } }));
+
+  const zoomLabel = el('span'), slider = el('input', { type: 'range', min: 0, max: 1000, step: 1 });
+  const quality = el('p', { class: 'note bad' });
+  const refresh = () => {
+    const k = geom(it).k;
+    slider.value = sliderFromZ(it.z); zoomLabel.textContent = Math.round(it.z * 100) + '%';
+    quality.hidden = k <= 1.15;
+    quality.textContent = `This photo is being enlarged ${k.toFixed(1)}× to fill these tiles and may look soft. Use a larger photo, zoom out, or cover fewer tiles.`;
+  };
+  const live = () => { repositionItem(it); refresh(); save(); };
+
+  box.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault(); box.setPointerCapture(e.pointerId);
+    let lx = e.clientX, ly = e.clientY;
+    const mv = ev => {
+      const q = geom(it);
+      it.cx -= (ev.clientX - lx) / fe / q.iw; it.cy -= (ev.clientY - ly) / fe / q.ih;
+      lx = ev.clientX; ly = ev.clientY; clampItem(it); live();
+    };
+    const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); box.removeEventListener('pointercancel', up); };
+    box.addEventListener('pointermove', mv); box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+  });
+  box.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = box.getBoundingClientRect(), q = geom(it);
+    zoomAt(it, it.z * Math.exp(-e.deltaY * 0.0015), (e.clientX - r.left) / fe - q.ox, (e.clientY - r.top) / fe - q.oy); live();
+  }, { passive: false });
+  slider.addEventListener('input', () => { const q = geom(it); zoomAt(it, zFromSlider(+slider.value), q.Aw / 2, q.Ah / 2); live(); });
+
+  const fit = mode => {
+    const im = images.get(it.imageId), q = geom(it), a = q.Aw / im.w, b = q.Ah / im.h;
+    if (mode === 'fill') it.z = 1;
+    if (mode === 'whole') it.z = clamp(Math.min(a, b) / Math.max(a, b), ZMIN, ZMAX);
+    it.cx = it.cy = 0.5; clampItem(it); live();
+  };
+  const seg = (label, max, cur, set) => el('div', { class: 'seg' }, el('span', { text: label }),
+    el('div', null, Array.from({ length: max }, (_, n) => el('button', { text: n + 1, 'aria-pressed': String(cur === n + 1), onclick: () => { if (cur !== n + 1 && set(n + 1)) changed(); } }))));
+  const count = it.w * it.h;
+  const capCount = el('span', { text: `${(it.caption || '').length}/2200` });
+  const cap = el('textarea', { rows: 3, maxLength: 2200, value: it.caption || '', 'aria-label': 'Caption',
+    placeholder: count > 1 ? 'Optional. Used on every piece of this photo.' : 'Optional.' });
+  cap.addEventListener('input', () => { it.caption = cap.value; capCount.textContent = `${cap.value.length}/2200`; save(); });
+
+  // frame with the photo's details in the margin (photos that fill one post only)
+  const info = shotInfo(rec), fr = framed(it) ? it.frame : null;
+  const frameGroup = el('div', { class: 'group' }, el('div', { class: 'lab' }, el('span', { text: 'Frame with photo details' })));
+  if (count > 1) frameGroup.append(el('p', { class: 'muted small', text: 'A frame goes on a photo that fills one post. Set Columns and Rows to 1 to add one.' }));
+  else {
+    const styleSel = el('select', { 'aria-label': 'Frame style' }, el('option', { value: '', text: 'No frame' }), Object.entries(FRAMES).map(([key, label]) => el('option', { value: key, text: label })));
+    styleSel.value = fr ? fr.style : '';
+    styleSel.addEventListener('change', () => {
+      const was = framed(it);
+      it.frame = { ...newFrame(), ...(it.frame || {}), style: styleSel.value };
+      if (was !== framed(it)) { it.z = 1; it.cx = it.cy = 0.5; }      // a crop made for the bare post does not carry over to the frame's window, nor back
+      clampItem(it); changed();
+    });
+    frameGroup.append(styleSel);
+    if (fr) {
+      const has = { camera: info.camera, lens: info.lens, settings: info.settings.length, film: info.film, date: info.date };
+      const setFit = fit => { if (fr.fit === fit) return; fr.fit = fit; it.z = 1; it.cx = it.cy = 0.5; clampItem(it); changed(); };
+      const own = el('input', { type: 'text', maxLength: 60, value: fr.note || '', placeholder: 'Your own line, such as a place', 'aria-label': 'Your own line' });
+      own.addEventListener('input', () => { fr.note = own.value; clampItem(it); live(); });
+      // what the border is made of (the film edge has its own dark border)
+      const back = Object.hasOwn(BACKS, fr.back) ? fr.back : 'fill', rowStyle = { flex: '1', width: 'auto', minWidth: '0' };
+      const backSel = el('select', { 'aria-label': 'Border', style: rowStyle }, Object.entries(BACKS).map(([key, label]) => el('option', { value: key, text: label })));
+      backSel.value = back;
+      backSel.addEventListener('change', () => { fr.back = backSel.value; if (!Number.isFinite(+fr.blur)) fr.blur = 40; clampItem(it); changed(); });
+      const blurLabel = el('span', { text: `${fr.blur}%`, style: { width: '38px', textAlign: 'right' } });
+      const blurSlider = el('input', { type: 'range', min: 0, max: 100, step: 1, 'aria-label': 'Blur', style: rowStyle });
+      blurSlider.value = fr.blur;
+      blurSlider.addEventListener('input', () => { fr.blur = +blurSlider.value; blurLabel.textContent = `${fr.blur}%`; live(); });
+      frameGroup.append(...[
+        el('div', { class: 'seg', style: { marginTop: '8px' } }, el('span', { text: 'Photo' }), el('div', null,
+          el('button', { text: 'Whole photo', 'aria-pressed': String(fr.fit !== 'fill'), onclick: () => setFit('whole') }),
+          el('button', { text: 'Fill the frame', 'aria-pressed': String(fr.fit === 'fill'), onclick: () => setFit('fill') }))),
+        fr.style === 'film' ? null : el('div', { class: 'seg' }, el('span', { text: 'Border' }), backSel),
+        fr.style !== 'film' && back === 'blur' ? el('div', { class: 'seg' }, el('span', { text: 'Blur' }), blurSlider, blurLabel) : null,
+        fr.style !== 'film' && back === 'blur' ? el('p', { class: 'muted small', style: { margin: '0 0 6px' }, text: 'The border is this photo again, enlarged and blurred. The writing turns light or dark to suit it.' }) : null,
+        el('div', { class: 'checks' }, FRAME_FIELDS.map(([key, label]) => {
+          const cb = el('input', { type: 'checkbox', checked: !!fr[key] && !!has[key], disabled: !has[key] });
+          cb.addEventListener('change', () => { fr[key] = cb.checked; clampItem(it); changed(); });
+          return el('label', { class: has[key] ? '' : 'off', title: has[key] ? '' : 'This photo does not carry that detail' }, cb, label);
+        })),
+        own,
+        Object.values(has).some(Boolean) ? null : el('p', { class: 'muted small', style: { marginTop: '6px' }, text: 'This photo carries no camera details, so only your own line will show.' }),
+        fr.style === 'film' || back !== 'fill' ? null : el('p', { class: 'muted small', style: { marginTop: '6px' }, text: 'The border takes the “Fill color” at the top of the page.' }),
+        el('button', { class: 'wide', style: { marginTop: '8px' }, text: 'Use this frame on every one-post photo', onclick: () => {
+          let n = 0;
+          for (const o of state.items) if (o !== it && o.w === 1 && o.h === 1) { o.frame = { ...fr, note: (o.frame && o.frame.note) || '' }; clampItem(o); n++; }
+          changed(); toast(n ? `Frame copied to ${n} other photo${n > 1 ? 's' : ''}.` : 'There are no other one-post photos on the grid.');
+        } })].filter(Boolean));
+    }
+  }
+  const shot = [info.camera, info.lens, ...info.settings, info.film, info.date].filter(Boolean).join(' · ');
+
+  pane.append(...[
+    box,
+    el('p', { class: 'sub', text: 'Drag to reposition · scroll to zoom' + (F.bleed > 0 ? ' · hatched edges are hidden in the grid' : '') }),
+    el('div', { class: 'group' }, el('label', null, el('span', { text: 'Zoom' }), zoomLabel), slider,
+      el('div', { class: 'btnRow' },
+        el('button', { text: 'Fill tiles', onclick: () => fit('fill') }),
+        el('button', { text: 'Show whole photo', onclick: () => fit('whole') }),
+        el('button', { text: 'Center', onclick: () => fit('center') })),
+      quality),
+    el('div', { class: 'group' }, el('div', { class: 'lab' }, el('span', { text: 'Spread across' }), el('span', { text: count === 1 ? '1 post' : `${it.w} × ${it.h} = ${count} posts` })),
+      seg('Columns', COLS, it.w, w => setSpan(it, w, it.h)),
+      seg('Rows', MAXH, it.h, h => setSpan(it, it.w, h))),
+    frameGroup,
+    el('div', { class: 'group' }, el('label', null, el('span', { text: 'Caption' }), capCount), cap),
+    el('div', { class: 'group btnRow' },
+      el('button', { text: 'Replace photo…', onclick: () => { pick = { mode: 'replace', itemId: it.id }; $('#filePick').click(); } }),
+      el('button', { class: 'danger', text: 'Remove from grid', onclick: () => takeOff(it) })),
+    el('p', { class: 'fileInfo', text: `${rec.name} · ${rec.w}×${rec.h}px` + (shot ? `\n${shot}` : ''), style: { whiteSpace: 'pre-line' } }),
+    rec.exif.flat ? el('p', { class: 'note bad', text: 'This photo was shot in Adobe RGB and carries no colour profile, so its colours look flatter here and on Instagram than they should. For Instagram, set the camera’s colour space to sRGB.' }) : null].filter(Boolean));
+  refresh();
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* no clipboard access: try the old way */ }
+  const ta = el('textarea', { value: text, style: { position: 'fixed', left: '-999px', opacity: '0' } });
+  document.body.append(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { /* nothing more to try */ }
+  ta.remove(); return ok;
+}
+
+// Posting by hand: one tile at a time, in order. Works with any Instagram account, personal ones included.
+function handCard(order) {
+  const box = el('div', { class: 'handBox' }, el('h3', { text: 'Post by hand' }));
+  const idx = order.findIndex(t => !state.posted[t.key]);
+  if (idx < 0) {
+    box.append(el('p', { class: 'muted small', text: 'Every tile is ticked as posted. Untick one in the list below to go back to it.' }));
+    return box;
+  }
+  const t = order[idx], n = idx + 1, parts = t.item.w * t.item.h, rec = images.get(t.item.imageId), cap = t.item.caption || '';
+  const shape = { '4x5': '4:5', '3x4': '3:4', '1x1': '1:1' }[state.format];
+  const save = el('button', { class: 'primary', text: 'Save tile', onclick: async () => {
+    save.disabled = true;
+    try { download(await renderTileBlob(t, new Map()), tileName(t, n)); toast(`Saved ${tileName(t, n)} to your downloads.`); }
+    catch (e) { toast('Could not render that tile.'); }
+    save.disabled = false;
+  } });
+  const copy = cap ? el('button', { text: 'Copy caption', onclick: async () => {
+    toast(await copyText(cap) ? 'Caption copied.' : 'Could not copy. Select the caption text and copy it yourself.');
+  } }) : null;
+  const mark = el('button', { text: 'Mark as posted', onclick: () => { state.posted[t.key] = true; changed(); } });
+  box.append(
+    el('div', { class: 'handNext' },
+      sliceEl(t.item, t.i, t.j, 84, 'post'),
+      el('div', null,
+        el('div', { class: 't1', text: `Next: post #${n} of ${order.length}` }),
+        el('div', { class: 't2', text: `Row ${t.r + 1}, column ${t.c + 1}` + (parts > 1 ? ` · piece ${t.j * t.item.w + t.i + 1} of ${parts}` : '') }),
+        el('div', { class: 't2', text: rec.name, title: rec.name }))),
+    cap ? el('div', { class: 'handCap', text: cap }) : el('p', { class: 'muted small', text: 'No caption on this photo. Add one on the “Edit photo” tab if you want it.' }),
+    el('div', { class: 'btnRow' }, save, copy, mark));
+  if (order.some((x, i) => i > idx && state.posted[x.key])) box.append(el('div', { class: 'msg warn', text: 'A later post is ticked while this one is not, so your profile may not end up matching this layout.' }));
+  box.append(el('details', null, el('summary', { text: 'How to post it' }), el('ol', null,
+    el('li', { text: `Click “Save tile”. The file ${tileName(t, n)} goes to your downloads folder.` }),
+    el('li', { text: `On this ${isMac ? 'Mac' : 'PC'}, open instagram.com, click Create in the left menu and choose that file. On a phone, get the file onto it first (${isMac ? 'AirDrop or iCloud Drive work' : 'OneDrive works'}) and start a new post in the Instagram app.` }),
+    el('li', { text: state.format === '1x1' ? 'Keep the square crop.' : `Before you continue, set the crop to Original so the tile keeps its ${shape} shape. On instagram.com the crop button is in the bottom-left corner of the photo; a square crop would cut the tile.` }),
+    state.format === '3x4' ? el('li', { text: 'If instagram.com cuts a 3:4 tile shorter even on Original, post this size from the phone app instead.' }) : null,
+    cap ? el('li', { text: 'Click “Copy caption” and paste it into the caption box.' }) : null,
+    el('li', { text: 'Share the post, then come back and click “Mark as posted”. The next tile moves up.' }),
+    el('li', { text: 'For the cleanest result, post from the Instagram phone app with “Upload at highest quality” switched on in its settings (under media quality).' }))));
+  return box;
+}
+
+let autoOpen = false;                   // "Post automatically" unfolded by hand
+function autoDetails(order) {
+  const d = el('details', { class: 'autoBox', open: autoOpen }, el('summary', { text: 'Post automatically (professional accounts only)' }), postPanel(order));
+  d.addEventListener('toggle', () => { autoOpen = d.open; });
+  return d;
+}
+
+function renderPosting(pane) {
+  const order = postingOrder(), F = fmt();
+  // Automatic posting leads the tab only once it is set up; otherwise posting by hand does, and it is folded away below.
+  const auto = (!!server && (server.connected || server.practice)) || run.active;
+  if (auto) pane.append(postPanel(order));
+  if (!order.length) {
+    pane.append(el('div', { class: 'empty', text: 'Nothing on the grid yet. Place some photos and the posting order will appear here.' }));
+    if (!auto && offerAuto()) pane.append(autoDetails(order));
+    return;
+  }
+  const done = order.filter(t => state.posted[t.key]).length;
+  pane.append(
+    el('div', { class: 'postHead' },
+      el('div', null, el('h2', { text: `${order.length} post${order.length > 1 ? 's' : ''}` }), el('p', { class: 'muted', text: `${F.W}×${F.H} JPEG · ${done} posted` })),
+      el('button', { text: 'Download all', disabled: run.active, onclick: exportZip })),
+    el('p', { class: 'muted note', text: 'Posts go up one at a time, starting with #1. The last one posted ends up top-left.' + (auto ? ' Tiles posted from here are ticked off for you; tick by hand if you post in the Instagram app.' : '') }));
+  if (!auto) pane.append(handCard(order));
+  const list = el('div', { class: 'postList' });
+  order.forEach((t, idx) => {
+    const n = idx + 1, parts = t.item.w * t.item.h, rec = images.get(t.item.imageId), link = igLink(state.links[t.key]);
+    const cb = el('input', { type: 'checkbox', checked: !!state.posted[t.key], disabled: run.active, title: 'Mark as posted', 'aria-label': `Post ${n} posted` });
+    cb.addEventListener('change', () => { if (cb.checked) state.posted[t.key] = true; else { delete state.posted[t.key]; delete state.links[t.key]; } changed(); });
+    const btn = el('button', { text: 'Save', title: 'Download this tile', disabled: run.active, onclick: async () => {
+      btn.disabled = true;
+      try { download(await renderTileBlob(t, new Map()), tileName(t, n)); } catch (e) { toast('Could not render that tile.'); }
+      btn.disabled = false;
+    } });
+    list.append(el('div', { class: 'postRow' + (state.posted[t.key] ? ' done' : '') },
+      el('span', { class: 'num', text: n }),
+      sliceEl(t.item, t.i, t.j, 38, 'post'),
+      el('div', null,
+        el('div', { class: 't1', text: `Row ${t.r + 1}, column ${t.c + 1}` }),
+        el('div', { class: 't2', text: (t.item.caption ? 'Caption · ' : '') + (parts > 1 ? `Piece ${t.j * t.item.w + t.i + 1} of ${parts} · ${rec.name}` : rec.name), title: rec.name }),
+        link ? el('a', { href: link, target: '_blank', rel: 'noopener noreferrer', text: 'View on Instagram' }) : null),
+      btn, cb));
+  });
+  pane.append(list);
+  if (!auto && offerAuto()) pane.append(autoDetails(order));
+}
+
+// The panel is rebuilt on every change. When it still shows the same photo, the control that had the
+// keyboard gets it back (with the typing position), so a change does not throw the user out of a field.
+const FOCUSABLE = 'button, input, select, textarea, summary';
+let paneKey = '';
+function renderSide() {
+  const pane = $('#pane'), a = document.activeElement, key = tab + ':' + state.selected;
+  const at = key === paneKey && pane.contains(a) ? [...pane.querySelectorAll(FOCUSABLE)].indexOf(a) : -1;
+  let caret = null;
+  if (at >= 0) { try { if (a.selectionStart != null) caret = [a.selectionStart, a.selectionEnd]; } catch (e) { /* this kind of field has no typing position */ } }
+  paneKey = key;
+  pane.replaceChildren();
+  $('#tabEdit').setAttribute('aria-selected', String(tab === 'edit'));
+  $('#tabPost').setAttribute('aria-selected', String(tab === 'post'));
+  if (tab === 'edit') renderEditor(pane); else renderPosting(pane);
+  const now = at >= 0 ? pane.querySelectorAll(FOCUSABLE)[at] : null;
+  if (now && now.tagName === a.tagName && now.type === a.type && !now.disabled) {
+    now.focus({ preventScroll: true });
+    if (caret) { try { now.setSelectionRange(caret[0], caret[1]); } catch (e) { /* not a text field */ } }
+  }
+}
+function renderAll() {
+  renderLibrary(); renderGrid(); renderSide();
+  views = views.filter(v => (v.img || v.canvas).isConnected);
+  $('#btnZip').disabled = !state.items.length;
+  $('#formatHint').textContent = HINTS[state.format];
+}
+function changed() { renderAll(); save(); }
+
+// ---------- grid interaction ----------
+let drag = null, ghost = null, suppressClick = false, dropCell = null;
+function cellFromPoint(x, y, loose) {
+  const rect = grid.getBoundingClientRect();
+  let c = Math.floor((x - rect.left) / (metrics.dw + GAP)), r = Math.floor((y - rect.top) / (metrics.dh + GAP));
+  if (loose) { c = clamp(c, 0, COLS - 1); r = clamp(r, 0, state.rows - 1); }
+  else if (c < 0 || c >= COLS || r < 0 || r >= state.rows) return null;
+  return { r, c };
+}
+function showGhost(row, col, w, h, ok) {
+  if (!ghost) ghost = el('div', { class: 'ghost' });
+  const { dw, dh } = metrics;
+  Object.assign(ghost.style, { left: col * (dw + GAP) + 'px', top: row * (dh + GAP) + 'px', width: w * dw + (w - 1) * GAP + 'px', height: h * dh + (h - 1) * GAP + 'px' });
+  ghost.classList.toggle('bad', !ok);
+  if (!ghost.isConnected) grid.append(ghost);
+}
+grid.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  const p = cellFromPoint(e.clientX, e.clientY); if (!p) return;
+  const it = itemAt(p.r, p.c); if (!it) return;
+  e.preventDefault();
+  if (state.selected !== it.id || tab !== 'edit') { state.selected = it.id; tab = 'edit'; renderAll(); }
+  drag = { it, sx: e.clientX, sy: e.clientY, offC: p.c - it.col, offR: p.r - it.row, moved: false, row: it.row, col: it.col };
+  grid.setPointerCapture(e.pointerId);
+});
+grid.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;
+  drag.moved = true;
+  const p = cellFromPoint(e.clientX, e.clientY, true);
+  drag.col = clamp(p.c - drag.offC, 0, COLS - drag.it.w); drag.row = Math.max(0, p.r - drag.offR);
+  showGhost(drag.row, drag.col, drag.it.w, drag.it.h, moveKind(drag.it, drag.row, drag.col) !== 'bad');
+});
+const endDrag = e => {
+  if (!drag) return;
+  const d = drag; drag = null; if (ghost) ghost.remove();
+  if (!d.moved) return;
+  suppressClick = true; setTimeout(() => { suppressClick = false; }, 0);
+  if (e.type === 'pointerup' && applyMove(d.it, d.row, d.col)) changed();
+};
+grid.addEventListener('pointerup', endDrag);
+grid.addEventListener('pointercancel', endDrag);
+grid.addEventListener('click', e => {
+  if (suppressClick) return;
+  const cell = e.target.closest('.cell'); if (!cell || cell.classList.contains('filled')) return;
+  pick = { mode: 'cell', index: +cell.dataset.r * COLS + +cell.dataset.c }; $('#filePick').click();
+});
+$('#stage').addEventListener('pointerdown', e => {
+  // composedPath, not closest(): selecting a photo re-renders the grid, which detaches e.target before this runs
+  if (e.composedPath().some(n => n === grid || (n.matches && n.matches('button, #checks')))) return;
+  if (state.selected) { state.selected = null; renderAll(); }
+});
+
+// drag photos in from the list or from a folder
+const setDropCell = cell => { if (dropCell === cell) return; if (dropCell) dropCell.classList.remove('drop'); dropCell = cell; if (cell) cell.classList.add('drop'); };
+const isOurDrag = e => e.dataTransfer && (e.dataTransfer.types.includes('Files') || e.dataTransfer.types.includes('application/x-grid-image'));
+grid.addEventListener('dragover', e => {
+  if (!isOurDrag(e)) return;
+  e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+  const p = cellFromPoint(e.clientX, e.clientY);
+  setDropCell(p ? grid.querySelector(`.cell[data-r="${p.r}"][data-c="${p.c}"]`) : null);
+});
+grid.addEventListener('dragleave', e => { if (!grid.contains(e.relatedTarget)) setDropCell(null); });
+grid.addEventListener('drop', async e => {
+  if (!isOurDrag(e)) return;
+  e.preventDefault(); e.stopPropagation(); setDropCell(null);
+  const p = cellFromPoint(e.clientX, e.clientY); if (!p) return;
+  const idx = p.r * COLS + p.c;
+  if (e.dataTransfer.files.length) {
+    const recs = await importFiles(await droppedFiles(e.dataTransfer));
+    if (recs.length) placeMany(recs.map(r => r.id), idx, true); else renderAll();
+  } else {
+    const id = e.dataTransfer.getData('application/x-grid-image');
+    if (images.has(id)) placeMany([id], idx, true);
+  }
+});
+window.addEventListener('dragover', e => { if (isOurDrag(e)) e.preventDefault(); });
+window.addEventListener('drop', async e => {
+  const has = !!(e.dataTransfer && e.dataTransfer.files.length);
+  if (!has && e.target.closest && e.target.closest('input, textarea')) return;      // text dragged into a field: leave it to the field
+  e.preventDefault();
+  if (has && !busyCount) { const got = droppedFiles(e.dataTransfer); await importFiles(await got); renderAll(); }
+});
+window.addEventListener('paste', async e => {
+  const files = [...(e.clipboardData ? e.clipboardData.files : [])].filter(f => f.type.startsWith('image/'));
+  if (files.length && !busyCount) { await importFiles(files); renderAll(); }
+});
+
+// ---------- export ----------
+// The picture to resample from. Only a photo that has to shrink to under a quarter is halved first
+// (and kept for the rest of the export), so the fine resampling below stays quick.
+// Memory is kept in hand on long exports: only the photo being worked on stays decoded at full size, and only
+// the two most recently used halved copies are kept.
+let fullPic = { id: null, el: null };
+async function fullPicture(rec) {
+  if (fullPic.id === rec.id) return fullPic.el;
+  const pic = await loadImg(rec.fullUrl);
+  fullPic = { id: rec.id, el: pic };
+  return pic;
+}
+async function exportSource(rec, k, cache) {
+  const full = await fullPicture(rec);
+  let steps = 0; while (k * Math.pow(2, steps) < 0.25 && steps < 4) steps++;
+  if (!steps) return { src: full, w: rec.w, h: rec.h };
+  const key = rec.id + ':' + steps;
+  let hit = cache.get(key);
+  if (hit) cache.delete(key);           // put back below, so the copy used last is the last one dropped
+  else {
+    let cur = full, w = rec.w, h = rec.h;
+    for (let s = 0; s < steps; s++) {
+      w = Math.max(1, Math.round(w / 2)); h = Math.max(1, Math.round(h / 2));
+      const c = el('canvas', { width: w, height: h }), x = c.getContext('2d');
+      x.imageSmoothingQuality = 'high'; x.drawImage(cur, 0, 0, w, h); cur = c;
+    }
+    hit = { src: cur, w, h };
+  }
+  cache.set(key, hit);
+  while (cache.size > 2) cache.delete(cache.keys().next().value);
+  return hit;
+}
+
+// Shrinking is done here rather than left to the browser: a Lanczos filter keeps more fine detail and
+// leaves far less moiré than the browser's own scaling (measured: about 95% against 78% of the contrast
+// kept at 0.6 of the finest detail a post can show, and a fifth of the false pattern beyond it).
+const lanczos = t => { t = Math.abs(t); if (t < 1e-7) return 1; if (t >= 3) return 0; const p = Math.PI * t; return 3 * Math.sin(p) * Math.sin(p / 3) / (p * p); };
+// For each of outN output pixels starting at outStart: which source pixels feed it and how much.
+// The picture's edge sits at `offset` (output pixels) and is `scale` times its source size; imgN is the source size.
+function taps(outStart, outN, offset, scale, imgN) {
+  const stretch = Math.max(1, 1 / scale), support = 3 * stretch, width = Math.ceil(support * 2) + 1;
+  const first = new Int32Array(outN), cnt = new Int32Array(outN), w = new Float32Array(outN * width);
+  for (let n = 0; n < outN; n++) {
+    const u = (outStart + n + 0.5 - offset) / scale, j0 = Math.floor(u - support), start = clamp(j0, 0, imgN - 1);
+    let sum = 0;
+    for (let t = 0; t < width; t++) {           // anything past the picture's edge counts as the edge pixel
+      const v = lanczos((j0 + t + 0.5 - u) / stretch);
+      w[n * width + clamp(j0 + t, 0, imgN - 1) - start] += v; sum += v;
+    }
+    for (let t = 0; t < width; t++) w[n * width + t] /= sum;
+    first[n] = start; cnt[n] = Math.min(width, imgN - start);
+  }
+  return { first, cnt, w, width };
+}
+// src: RGBA pixels of the source region that starts at (sx0, sy0). Fills `rows` rows of `out` (RGB floats, ow wide) from row0.
+function resampleInto(src, sw, sh, sx0, sy0, H, V, out, ow, row0, rows) {
+  const rowLen = ow * 3, tmp = new Float32Array(rowLen * sh);
+  for (let y = 0; y < sh; y++) {
+    const so = y * sw * 4, to = y * rowLen;
+    for (let X = 0; X < ow; X++) {
+      let r = 0, g = 0, b = 0;
+      const base = so + (H.first[X] - sx0) * 4, wo = X * H.width, n = H.cnt[X];
+      for (let t = 0; t < n; t++) { const wv = H.w[wo + t], p = base + t * 4; r += wv * src[p]; g += wv * src[p + 1]; b += wv * src[p + 2]; }
+      tmp[to + X * 3] = r; tmp[to + X * 3 + 1] = g; tmp[to + X * 3 + 2] = b;
+    }
+  }
+  for (let Y = 0; Y < rows; Y++) {
+    const o = (row0 + Y) * rowLen, n = V.cnt[Y];
+    for (let t = 0; t < n; t++) {
+      const wv = V.w[Y * V.width + t], r = (V.first[Y] - sy0 + t) * rowLen;
+      for (let i = 0; i < rowLen; i++) out[o + i] += wv * tmp[r + i];
+    }
+  }
+}
+// Gentle unsharp mask on brightness only (so colours don't fringe), for the softness that shrinking leaves.
+function sharpen(rgb, w, h, amount) {
+  if (!(amount > 0) || w < 3 || h < 3) return;
+  const n = w * h, Y = new Float32Array(n), T = new Float32Array(n);
+  for (let i = 0, p = 0; i < n; i++, p += 3) Y[i] = 0.2126 * rgb[p] + 0.7152 * rgb[p + 1] + 0.0722 * rgb[p + 2];
+  const g1 = Math.exp(-1 / 1.28), g2 = Math.exp(-4 / 1.28), sum = 1 + 2 * g1 + 2 * g2, a = 1 / sum, b = g1 / sum, c = g2 / sum;   // blur of 0.8 px
+  for (let y = 0; y < h; y++) {
+    const o = y * w;
+    for (let x = 0; x < w; x++) T[o + x] = a * Y[o + x] + b * (Y[o + Math.max(0, x - 1)] + Y[o + Math.min(w - 1, x + 1)]) + c * (Y[o + Math.max(0, x - 2)] + Y[o + Math.min(w - 1, x + 2)]);
+  }
+  for (let y = 0; y < h; y++) {
+    const o = y * w, u1 = Math.max(0, y - 1) * w, u2 = Math.max(0, y - 2) * w, d1 = Math.min(h - 1, y + 1) * w, d2 = Math.min(h - 1, y + 2) * w;
+    for (let x = 0; x < w; x++) {
+      const blur = a * T[o + x] + b * (T[u1 + x] + T[d1 + x]) + c * (T[u2 + x] + T[d2 + x]);
+      const d = clamp(amount * (Y[o + x] - blur), -24, 24), p = (o + x) * 3;      // capped so hard edges don't grow halos
+      rgb[p] += d; rgb[p + 1] += d; rgb[p + 2] += d;
+    }
+  }
+}
+// Draws the photo onto x at k export pixels per photo pixel, with its top-left corner at (dx, dy), inside clip.
+// Works through the picture in bands so even a 26-megapixel photo needs little memory.
+async function drawPhoto(x, rec, k, dx, dy, clip, cache, bg) {
+  const lx = Math.ceil(dx - 0.5), hx = Math.ceil(dx + rec.w * k - 0.5), ly = Math.ceil(dy - 0.5), hy = Math.ceil(dy + rec.h * k - 0.5);   // pixels whose centre lies on the photo
+  const X0 = Math.max(Math.round(clip.x), lx), X1 = Math.min(Math.round(clip.x + clip.w), hx);
+  const Y0 = Math.max(Math.round(clip.y), ly), Y1 = Math.min(Math.round(clip.y + clip.h), hy);
+  if (X1 <= X0 || Y1 <= Y0) return;
+  const PAD = 4;                         // a few extra pixels all round, where the photo has them, so sharpening sees real neighbours and pieces of a split photo still match
+  const px0 = Math.max(X0 - PAD, lx), px1 = Math.min(X1 + PAD, hx), py0 = Math.max(Y0 - PAD, ly), py1 = Math.min(Y1 + PAD, hy);
+  const ow = px1 - px0, oh = py1 - py0, S = await exportSource(rec, k, cache);
+  const H = taps(px0, ow, dx, rec.w * k / S.w, S.w), sx0 = H.first[0], sw = H.first[ow - 1] + H.cnt[ow - 1] - sx0;
+  const out = new Float32Array(ow * oh * 3), scratch = el('canvas', { width: sw, height: 1 }), sx = scratch.getContext('2d', { willReadFrequently: true });
+  for (let row0 = 0; row0 < oh; row0 += 256) {
+    const rows = Math.min(256, oh - row0), V = taps(py0 + row0, rows, dy, rec.h * k / S.h, S.h), sy0 = V.first[0], sh = V.first[rows - 1] + V.cnt[rows - 1] - sy0;
+    if (scratch.height !== sh) scratch.height = sh;
+    sx.imageSmoothingEnabled = false; sx.fillStyle = bg; sx.fillRect(0, 0, sw, sh);      // see-through parts of a PNG take the fill color
+    sx.drawImage(S.src, sx0, sy0, sw, sh, 0, 0, sw, sh);
+    resampleInto(sx.getImageData(0, 0, sw, sh).data, sw, sh, sx0, sy0, H, V, out, ow, row0, rows);
+  }
+  sharpen(out, ow, oh, SHARPEN[state.sharpen] || 0);
+  const cw = X1 - X0, ch = Y1 - Y0, id = x.createImageData(cw, ch), d = id.data;
+  for (let y = 0; y < ch; y++) {
+    let p = ((y + Y0 - py0) * ow + (X0 - px0)) * 3, q = y * cw * 4;
+    for (let n = 0; n < cw; n++, p += 3, q += 4) { d[q] = out[p]; d[q + 1] = out[p + 1]; d[q + 2] = out[p + 2]; d[q + 3] = 255; }
+  }
+  x.putImageData(id, X0, Y0);
+}
+async function renderTile(t, cache) {
+  const it = t.item, g = geom(it), F = g.F, L = g.L, bg = L ? L.paper : state.bg;
+  const c = el('canvas', { width: F.W, height: F.H }), x = c.getContext('2d');
+  x.fillStyle = bg; x.fillRect(0, 0, F.W, F.H);
+  if (L && L.back) {                    // a blurred border, made again from the full picture at the size the blur calls for
+    const rec = images.get(it.imageId), b = makeBack(await fullPicture(rec), rec.w, rec.h, F, L.sigma, 1);
+    x.imageSmoothingQuality = 'high'; x.drawImage(b.canvas, 0, 0, F.W, F.H);
+  }
+  await drawPhoto(x, images.get(it.imageId), g.k, g.ox + g.x0 - t.i * F.tw, g.oy + g.y0 - t.j * F.th, L ? L.win : { x: 0, y: 0, w: F.W, h: F.H }, cache, bg);
+  if (L) drawFrameText(x, L, F);
+  return c;
+}
+// Quality 1 is the only setting at which this browser keeps colour detail at full resolution (4:4:4); anything
+// lower halves it before Instagram compresses the picture again.
+async function renderTileBlob(t, cache) {
+  const c = await renderTile(t, cache);
+  return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('encode')), 'image/jpeg', 1));
+}
+
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+async function makeZip(files) {           // stored (uncompressed) zip — JPEGs don't shrink anyway
+  const enc = new TextEncoder(), parts = [], central = [], d = new Date();
+  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  let offset = 0, cdSize = 0;
+  for (const f of files) {
+    const data = new Uint8Array(await f.blob.arrayBuffer()), name = enc.encode(f.name), crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+    lh.setUint16(10, time, true); lh.setUint16(12, date, true); lh.setUint32(14, crc, true);
+    lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true);
+    parts.push(lh.buffer, name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(12, time, true); ch.setUint16(14, date, true); ch.setUint32(16, crc, true);
+    ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true);
+    ch.setUint32(42, offset, true);
+    central.push(ch.buffer, name);
+    offset += 30 + name.length + data.length; cdSize += 46 + name.length;
+  }
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
+}
+function orderText(order) {
+  const F = fmt(), lines = [
+    'Instagram grid — posting order',
+    `Made ${today()} · ${order.length} posts · ${F.W}x${F.H} JPEG`,
+    '',
+    'Post these one at a time, in this order. post-01 goes up first;',
+    'the last file ends up top-left on your profile.',
+    ''];
+  order.forEach((t, i) => {
+    const parts = t.item.w * t.item.h, rec = images.get(t.item.imageId);
+    lines.push(`${pad(i + 1)}.  ${tileName(t, i + 1)}    ${rec.name}${parts > 1 ? ` (piece ${t.j * t.item.w + t.i + 1} of ${parts})` : ''}`);
+    if (t.item.caption) lines.push(...t.item.caption.split(/\r?\n/).map(l => '       ' + l), '');
+  });
+  const msgs = checks();
+  if (msgs.length) lines.push('', 'Heads-up', ...msgs.map(m => '- ' + m.text));
+  return lines.join('\r\n') + '\r\n';
+}
+async function exportZip() {
+  const order = postingOrder(); if (!order.length || run.active) return;
+  const btn = $('#btnZip'), label = btn.textContent; btn.disabled = true;
+  try {
+    await withBusy('Rendering tiles…', async () => {
+      const cache = new Map(), files = [];
+      for (let i = 0; i < order.length; i++) {
+        btn.textContent = `Rendering ${i + 1}/${order.length}…`;
+        files.push({ name: tileName(order[i], i + 1), blob: await renderTileBlob(order[i], cache) });
+      }
+      files.push({ name: 'posting-order.txt', blob: new Blob([orderText(order)], { type: 'text/plain' }) });
+      download(await makeZip(files), `instagram-grid_${today()}.zip`);
+    });
+    toast(`Saved ${order.length} tiles. Post them starting with post-01.`);
+  } catch (e) { console.error(e); toast('Export failed — one of the photos could not be rendered.'); }
+  btn.textContent = label; btn.disabled = !state.items.length;
+}
+
+// ---------- posting to Instagram (needs server.py; see "Start Grid Planner.bat") ----------
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const igLink = url => /^https:\/\/(www\.)?instagram\.com\//.test(url || '') ? url : '';
+async function api(path, { method = 'GET', json, body } = {}) {
+  const headers = { 'X-Grid-Planner': '1' };
+  if (json !== undefined) { headers['Content-Type'] = 'application/json'; body = JSON.stringify(json); }
+  let res;
+  try { res = await fetch(path, { method, headers, body }); }
+  catch (e) { const err = new Error('Lost contact with the Grid Planner window that runs in the background. Is it still open?'); err.lost = true; throw err; }
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* not JSON */ }
+  if (!res.ok) { const err = new Error(data.error || `The local server answered with an error (${res.status}).`); err.data = data; throw err; }
+  return data;
+}
+async function refreshServer(quota) {
+  if (inProgram || onWeb || !location.protocol.startsWith('http') || !localHost) { server = null; return; }      // server.py only ever runs on this computer
+  try { const s = await api('/api/status' + (quota ? '?quota=1' : '')); server = s.app === 'grid-planner' ? s : null; }
+  catch (e) { server = null; }                // a plain file server, or the app window was closed: no posting
+}
+
+function connectForm(box) {
+  const tok = el('input', { type: 'password', placeholder: 'Paste your access token', autocomplete: 'off', spellcheck: false, 'aria-label': 'Access token' });
+  const acct = el('input', { type: 'text', placeholder: 'Username (only if the token manages several accounts)', autocomplete: 'off', spellcheck: false, 'aria-label': 'Account username' });
+  const problem = el('div', { class: 'msg warn', hidden: true });
+  const btn = el('button', { class: 'primary', text: 'Connect' });
+  btn.addEventListener('click', async () => {
+    if (!tok.value.trim()) { problem.textContent = 'Paste your access token first.'; problem.hidden = false; return; }
+    btn.disabled = true; btn.textContent = 'Checking with Instagram…'; problem.hidden = true;
+    try {
+      server = await api('/api/connect', { method: 'POST', json: { token: tok.value.trim(), username: acct.value.trim() } });
+      tok.value = ''; toast('Connected as @' + server.username); renderAll();
+    } catch (e) { problem.textContent = e.message; problem.hidden = false; btn.disabled = false; btn.textContent = 'Connect'; }
+  });
+  box.append(
+    el('p', { class: 'muted small', text: 'Connect a Business or Creator account once. The access token is kept encrypted on this PC and is only ever sent to Instagram.' }),
+    tok, acct, problem, btn,
+    el('details', null, el('summary', { text: 'How to get an access token' }), el('ol', null,
+      el('li', { text: 'Make sure the Instagram account is public and is a Business or Creator account (Instagram app → Settings → Account type and tools). Meta only generates tokens for public accounts.' }),
+      el('li', { text: 'At developers.facebook.com, create an app with the use case “Manage messaging & content on Instagram”, and connect it to a business portfolio (free to create at business.facebook.com).' }),
+      el('li', { text: 'In the app dashboard open Use cases → Customize → “API setup with Unified login”. Under “1. Configure your app” click “Create new configuration”; it must include instagram_content_publish.' }),
+      el('li', { text: 'Under “2. Generate access tokens” click “Add account” and log in to Instagram. If Meta asks, accept the tester invite on instagram.com (Settings → Apps and websites → Tester invites). Then click “Generate token”.' }),
+      el('li', { text: 'Copy the token straight away, because Meta shows it only once, and paste it above.' }))));
+}
+
+function postPanel(order) {
+  const box = el('div', { class: 'igBox' });
+  box.append(el('h3', { text: 'Post straight to Instagram' }));
+  if (!server || (!server.connected && !server.practice)) box.append(el('div', { class: 'msg info', text: 'Read this first: Instagram only allows automatic posting to a professional account (Business or Creator) that is public. A personal account cannot be connected. It also needs a Meta developer app and a Meta business portfolio. Posting by hand needs none of this.' }));
+  if (!server) {
+    box.append(el('p', { class: 'muted small', text: 'To post from here, close this page and start the app with “Start Grid Planner.bat” in the app folder. Opened as a plain file, the planner can only export tiles.' }));
+    return box;
+  }
+  if (server.practice) box.append(el('div', { class: 'msg info', text: 'Practice mode: every step runs, but nothing is sent to Instagram.' }));
+  if (!server.connected) { connectForm(box); return box; }
+
+  box.append(el('div', { class: 'who' }, el('strong', { text: '@' + (server.username || 'your account') }),
+    server.practice ? null : el('button', { class: 'linkBtn', text: 'Disconnect', disabled: run.active, onclick: async () => {
+      if (!confirm('Disconnect this Instagram account? The saved access token is deleted from this PC.')) return;
+      try { server = await api('/api/disconnect', { method: 'POST', json: {} }); } catch (e) { toast(e.message); }
+      renderAll();
+    } })));
+  const facts = [], q = server.quota;
+  if (q && q.used != null) facts.push(`${q.used}${q.total ? ' of ' + q.total : ''} API posts used in the last 24 hours`);
+  if (server.token_days_left != null) facts.push(`token good for about ${server.token_days_left} more day${server.token_days_left === 1 ? '' : 's'}`);
+  else if (server.token_kind === 'unified' || server.token_kind === 'pages') facts.push('Meta sets when this token expires; paste a new one if posting says it has expired');
+  if (facts.length) box.append(el('p', { class: 'muted small', text: facts.join(' · ') }));
+  if (server.token_error) box.append(el('div', { class: 'msg warn', text: server.token_error }));
+
+  // Instagram downloads each image from a public address, so one has to exist while posting.
+  const linkReady = server.practice || server.public_base_url || server.cloudflared;
+  if (server.public_base_url) box.append(el('p', { class: 'muted small', text: `Instagram collects each tile from your own address: ${server.public_base_url}` }));
+  else if (server.cloudflared) box.append(el('p', { class: 'muted small', text: 'While posting, a temporary Cloudflare link lets Instagram collect each tile. It closes by itself about 10 minutes after the last post, or when you quit the app.' }));
+  else if (!server.practice) box.append(el('div', { class: 'msg warn' },
+    'Instagram has to collect each image from a public address. Install cloudflared so the app can open a temporary one: run ',
+    el('code', { text: 'winget install --id Cloudflare.cloudflared' }), ' in a terminal, then restart the app.'));
+  if (!server.practice) {
+    const own = el('input', { type: 'text', value: server.public_base_url || '', placeholder: 'https://…', spellcheck: false, 'aria-label': 'Your own public address' });
+    box.append(el('details', null, el('summary', { text: 'Use my own public address instead' }),
+      el('p', { class: 'muted', style: { margin: '8px 0' }, text: `Advanced: an https address that forwards to port ${server.media_port} on this PC (your own tunnel or reverse proxy). Leave empty to use the Cloudflare link.` }),
+      own, el('div', { class: 'btnRow' }, el('button', { text: 'Save address', disabled: run.active, onclick: async () => {
+        try { server = await api('/api/settings', { method: 'POST', json: { public_base_url: own.value.trim() } }); renderAll(); } catch (e) { toast(e.message); }
+      } }))));
+  }
+
+  const remaining = order.filter(t => !state.posted[t.key]).length;
+  let block = '';
+  if (state.format === '3x4') block = 'Instagram’s API rejects 3:4 images. Switch “Post size” to 4:5 or 1:1 to post from here.';
+  if (block) box.append(el('div', { class: 'msg warn', text: block }));
+  const ready = !block && linkReady && !server.token_error && remaining > 0 && !run.active;
+
+  const delay = el('select', { 'aria-label': 'Pause between posts', disabled: run.active });
+  for (const s of [5, 10, 30, 60]) delay.append(el('option', { value: s, text: `${s} seconds` }));
+  delay.value = run.delay; delay.addEventListener('change', () => { run.delay = +delay.value; });
+  box.append(el('label', { class: 'field small' }, 'Pause between posts', delay));
+  box.append(el('div', { class: 'btnRow' },
+    el('button', { text: 'Post next', disabled: !ready, onclick: () => postRun(false) }),
+    el('button', { class: 'primary', text: remaining ? `Post all ${remaining} remaining` : 'Everything is posted', disabled: !ready, onclick: () => postRun(true) })));
+  if (run.active) box.append(el('button', { text: run.stop ? 'Stopping after this post…' : 'Stop after this post', disabled: run.stop, onclick: () => { run.stop = true; renderAll(); } }));
+  run.noteEl = el('p', { class: 'runNote', text: run.note, hidden: !run.note }); box.append(run.noteEl);
+  if (run.error) box.append(el('div', { class: 'msg warn', text: run.error }));
+  return box;
+}
+
+// Publishes the tiles that are not ticked yet, strictly in posting order, and stops at the first problem:
+// skipping a tile would shift every later one on the profile.
+async function postRun(all) {
+  if (run.active || !server || !server.connected) return;
+  const order = postingOrder();
+  const todo = order.map((t, i) => ({ t, n: i + 1 })).filter(x => !state.posted[x.t.key]);
+  if (!todo.length) return;
+  const batch = all ? todo : todo.slice(0, 1), many = batch.length > 1;
+  const firstOpen = order.findIndex(t => !state.posted[t.key]);
+  const warn = checks().filter(m => m.level === 'warn').map(m => m.text);
+  if (order.some((t, i) => i > firstOpen && state.posted[t.key])) warn.push('Later posts are already ticked while earlier ones are not, so your profile may not end up matching this layout.');
+  const lines = server.practice
+    ? [`Practice run: ${batch.length} post${many ? 's' : ''}. Nothing will be sent to Instagram.`]
+    : [`Publish ${batch.length} post${many ? 's' : ''} to @${server.username} now?`, '',
+       many ? `Posts #${batch[0].n} to #${batch[batch.length - 1].n} go up one after another, ${run.delay} seconds apart.` : `Post #${batch[0].n} goes up straight away.`,
+       `${many ? 'They are' : 'It is'} public as soon as ${many ? 'they are' : 'it is'} published and cannot be taken back from this app.`];
+  if (warn.length) lines.push('', 'Check first:', ...warn.map(w => '• ' + w));
+  if (!confirm(lines.join('\n'))) return;
+
+  const note = text => { run.note = text; if (run.noteEl) { run.noteEl.textContent = text; run.noteEl.hidden = !text; } };
+  const lock = on => { $('header').inert = $('#library').inert = $('#stage').inert = on; $('#tabEdit').disabled = on; };
+  run.active = true; run.stop = false; run.error = ''; tab = 'post'; state.selected = null;
+  lock(true); renderAll();
+  const cache = new Map();
+  let current = batch[0].n, publishing = false, done = 0;
+  try {
+    for (let i = 0; i < batch.length; i++) {
+      const { t, n } = batch[i], label = `#${n} of ${order.length}`;
+      current = n;
+      note(`Preparing post ${label}…`);
+      const blob = await renderTileBlob(t, cache);
+      const { stage_id } = await api('/api/stage?name=' + encodeURIComponent(tileName(t, n)), { method: 'PUT', body: blob });
+      note(`Publishing post ${label}…${done ? '' : ' The first one can take a minute while the public link opens.'}`);
+      let res;
+      publishing = true;
+      try { res = await api('/api/publish', { method: 'POST', json: { stage_id, caption: t.item.caption || '' } }); }
+      catch (e) {
+        if (!(e.data && e.data.duplicate)) throw e;
+        const when = new Date((e.data.duplicate.time || 0) * 1000).toLocaleString();
+        if (!confirm(`Post #${n} was already published from this PC (${when}).\n\nOK: tick it as posted and carry on.\nCancel: stop here.`)) throw new Error('it was already published earlier and you chose to stop');
+        res = { permalink: e.data.duplicate.permalink || '' };
+      }
+      publishing = false;
+      state.posted[t.key] = true;
+      if (igLink(res.permalink)) state.links[t.key] = res.permalink;
+      if (res.quota) server.quota = res.quota;
+      done++; changed();
+      if (run.stop || i === batch.length - 1) break;
+      for (let s = run.delay; s > 0 && !run.stop; s--) { note(`Post ${label} is up. Next one in ${s} s…`); await sleep(1000); }
+      if (run.stop) break;
+    }
+    toast(server.practice ? `Practice run finished: ${done} post${done === 1 ? '' : 's'} went through every step.` : `${done} post${done === 1 ? '' : 's'} published.`);
+  } catch (e) {
+    const unsure = e.lost && publishing;
+    run.error = `Stopped at post #${current}: ${e.message}` + (unsure
+      ? ' It may or may not have gone up — check your profile, and tick it by hand if it is there, before posting anything else.'
+      : (e.data && e.data.uncertain ? '' : ' Nothing from this post onward was published.'));
+  } finally {
+    run.active = false; run.stop = false; note(''); lock(false);
+    renderAll();                              // unlock the buttons straight away, then update the usage count
+    await refreshServer(true); renderAll();
+  }
+}
+
+// ---------- persistence ----------
+function serialize() {
+  return { format: state.format, bg: state.bg, sharpen: state.sharpen, showOrder: state.showOrder, posted: { ...state.posted }, links: { ...state.links },
+    items: state.items.map(({ id, imageId, row, col, w, h, z, cx, cy, caption, frame }) => ({ id, imageId, row, col, w, h, z, cx, cy, caption: caption || '', frame: frame ? { ...frame } : undefined })) };
+}
+function cleanFrame(f) {
+  if (!f || typeof f !== 'object') return null;
+  return { style: Object.hasOwn(FRAMES, f.style) ? f.style : '', fit: f.fit === 'fill' ? 'fill' : 'whole',
+    back: Object.hasOwn(BACKS, f.back) ? f.back : 'fill', blur: Number.isFinite(+f.blur) ? clamp(Math.round(+f.blur), 0, 100) : 40, camera: f.camera !== false, lens: f.lens !== false, settings: f.settings !== false,
+    film: f.film !== false, date: f.date === true, note: String(f.note || '').slice(0, 60) };
+}
+function applyState(p) {
+  const int = (v, a, b, d) => Number.isFinite(+v) ? clamp(Math.round(+v), a, b) : d;
+  const num = (v, d) => Number.isFinite(+v) ? +v : d;
+  p = p && typeof p === 'object' ? p : {};
+  state.format = Object.hasOwn(FORMATS, p.format) ? p.format : '4x5';
+  state.bg = /^#[0-9a-f]{6}$/i.test(p.bg) ? p.bg : '#ffffff';
+  state.sharpen = Object.hasOwn(SHARPEN, p.sharpen) ? p.sharpen : 'std';
+  state.showOrder = p.showOrder !== false;
+  state.items = []; state.selected = null;
+  for (const raw of Array.isArray(p.items) ? p.items : []) {
+    if (!raw || !images.has(String(raw.imageId))) continue;
+    const w = int(raw.w, 1, COLS, 1), h = int(raw.h, 1, MAXH, 1);
+    const it = { id: String(raw.id || uid()), imageId: String(raw.imageId), w, h, col: int(raw.col, 0, COLS - w, 0), row: int(raw.row, 0, 500, 0),
+      z: clamp(num(raw.z, 1), ZMIN, ZMAX), cx: num(raw.cx, 0.5), cy: num(raw.cy, 0.5), caption: String(raw.caption || '').slice(0, 2200) };
+    const frame = cleanFrame(raw.frame); if (frame) it.frame = frame;
+    if (overlapping(it.row, it.col, w, h, it.id).length) continue;
+    clampItem(it); state.items.push(it);
+  }
+  const keys = new Set(tiles().map(t => t.key)); state.posted = {}; state.links = {};
+  for (const k of Object.keys(p.posted && typeof p.posted === 'object' ? p.posted : {})) if (keys.has(k)) state.posted[k] = true;
+  for (const [k, v] of Object.entries(p.links && typeof p.links === 'object' ? p.links : {})) if (keys.has(k) && igLink(v)) state.links[k] = v;
+}
+function syncControls() {
+  $('#format').value = state.format; $('#bg').value = state.bg; $('#sharpen').value = state.sharpen; $('#showOrder').checked = state.showOrder;
+  document.documentElement.style.setProperty('--post-bg', state.bg);
+}
+
+const idbReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const idbStore = (name, mode) => db.transaction(name, mode).objectStore(name);
+function dbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('grid-planner', 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore('kv'); r.result.createObjectStore('images'); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+const dbFail = () => { $('#saveNote').textContent = `Autosave isn't working${inProgram ? '' : ' in this browser'}. Use “Save project file” to keep your plan.`; };
+function dbPutImage(rec) { if (db) idbReq(idbStore('images', 'readwrite').put({ id: rec.id, name: rec.name, blob: rec.blob, previewBlob: rec.previewBlob, added: rec.added }, rec.id)).catch(dbFail); }
+function dbDelImage(id) { if (db) idbReq(idbStore('images', 'readwrite').delete(id)).catch(dbFail); }
+let ready = false;                      // true once the saved plan is back on screen; nothing is written before that, or an empty page could replace it
+const saveNow = () => { if (db && ready) idbReq(idbStore('kv', 'readwrite').put(serialize(), 'project')).catch(dbFail); };
+const save = debounce(saveNow, 350);
+// Settles once the plan, and every photo handed to the database before it, is on disk. Grid Planner.exe waits for this before its window closes.
+const flush = () => new Promise(res => {
+  if (!db || !ready) return res();
+  try {
+    const tx = db.transaction(['kv', 'images'], 'readwrite', { durability: 'strict' });
+    tx.objectStore('kv').put(serialize(), 'project');
+    tx.oncomplete = tx.onerror = tx.onabort = () => res();
+  } catch (e) { res(); }
+});
+async function restore() {
+  const saved = await idbReq(idbStore('images', 'readonly').getAll());
+  saved.sort((a, b) => (a.added || 0) - (b.added || 0));        // keep the photo list in the order photos were added
+  for (const r of saved) {
+    try { await addImage(r.blob, r.name, r.id, r.previewBlob, r.added); } catch (e) { /* skip unreadable */ }
+  }
+  applyState(await idbReq(idbStore('kv', 'readonly').get('project')));
+}
+function clearEverything() {
+  for (const id of [...images.keys()]) removeImage(id);
+  state.items = []; state.posted = {}; state.links = {}; state.selected = null;
+}
+
+const blobToDataURL = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+function dataURLToBlob(s) {
+  const m = /^data:(image\/[\w.+-]+);base64,(.*)$/s.exec(String(s)); if (!m) throw new Error('bad image data');
+  const bin = atob(m[2]), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type: m[1] });
+}
+async function saveProjectFile() {
+  const imgs = [];
+  await withBusy('Saving project…', async () => {
+    for (const rec of images.values()) imgs.push({ id: rec.id, name: rec.name, data: await blobToDataURL(rec.blob) });
+  });
+  download(new Blob([JSON.stringify({ app: 'grid-planner', version: 1, project: serialize(), images: imgs })], { type: 'application/json' }), `grid-plan_${today()}.json`);
+}
+async function openProjectFile(file) {
+  let data;
+  try { data = JSON.parse(await file.text()); } catch (e) { data = null; }
+  if (!data || data.app !== 'grid-planner' || !Array.isArray(data.images)) { toast('That file is not a Grid Planner project.'); return; }
+  if (images.size && !confirm('Opening this project replaces what is on screen now. Continue?')) return;
+  let readable = !data.images.length;
+  await withBusy('Opening project…', async () => {
+    const photos = [];
+    for (const im of data.images) { try { photos.push({ blob: dataURLToBlob(im && im.data), name: im.name, id: String(im.id) }); } catch (e) { /* skip */ } }
+    for (const p of photos) {            // make sure at least one photo can be read before the plan on screen is thrown away
+      const url = URL.createObjectURL(p.blob);
+      try { await loadImg(url); readable = true; } catch (e) { /* try the next one */ }
+      URL.revokeObjectURL(url);
+      if (readable) break;
+    }
+    if (!readable) return;
+    clearEverything();
+    for (const p of photos) { try { const rec = await addImage(p.blob, p.name, p.id); dbPutImage(rec); } catch (e) { /* skip */ } }
+    applyState(data.project); syncControls();
+  });
+  if (!readable) { toast('None of the photos in that file could be read, so nothing was changed.'); return; }
+  changed();
+}
+
+// ---------- wiring ----------
+function bindUI() {
+  const sel = $('#format');
+  for (const [k, f] of Object.entries(FORMATS)) sel.append(el('option', { value: k, text: f.label }));
+  sel.addEventListener('change', () => { state.format = sel.value; state.items.forEach(clampItem); changed(); });
+  $('#bg').addEventListener('input', e => {
+    state.bg = e.target.value; document.documentElement.style.setProperty('--post-bg', state.bg);
+    for (const it of state.items) if (framed(it)) repositionItem(it);      // frames are drawn in the fill color
+    save();
+  });
+  $('#sharpen').addEventListener('change', e => { state.sharpen = e.target.value; save(); });
+  $('#showOrder').addEventListener('change', e => { state.showOrder = e.target.checked; changed(); });
+  $('#btnAdd').addEventListener('click', () => { pick = { mode: 'library' }; $('#filePick').click(); });
+  $('#btnZip').addEventListener('click', exportZip);
+  $('#btnPlaceAll').addEventListener('click', () => {
+    const used = new Set(state.items.map(it => it.imageId));
+    placeMany([...images.keys()].filter(id => !used.has(id)), 0, false);
+  });
+  $('#btnRowTop').addEventListener('click', () => { state.items.forEach(it => { it.row++; }); changed(); });
+  $('#btnCompact').addEventListener('click', () => {
+    const busy = new Set(); for (const it of state.items) for (let j = 0; j < it.h; j++) busy.add(it.row + j);
+    const shift = r => { let n = 0; for (let i = 0; i < r; i++) if (!busy.has(i)) n++; return n; };
+    state.items.forEach(it => { it.row -= shift(it.row); }); changed();
+  });
+  $('#tabEdit').addEventListener('click', () => { tab = 'edit'; renderAll(); });
+  $('#tabPost').addEventListener('click', () => { tab = 'post'; renderAll(); });
+  $('#filePick').addEventListener('change', async e => {
+    const files = [...e.target.files], p = pick || { mode: 'library' }; e.target.value = ''; pick = null;
+    if (!files.length) return;
+    const recs = await importFiles(p.mode === 'replace' ? files.slice(0, 1) : files);
+    if (!recs.length) { renderAll(); return; }
+    if (p.mode === 'cell') placeMany(recs.map(r => r.id), p.index, false);
+    else if (p.mode === 'replace') {
+      const it = state.items.find(x => x.id === p.itemId);
+      if (it) swapPhoto(it, recs[0].id);
+      changed();
+    } else renderAll();
+  });
+  const menu = $('#projMenu');
+  $('#btnSave').addEventListener('click', async () => { menu.open = false; if (!images.size) { toast('Nothing to save yet.'); return; } await saveProjectFile(); });
+  $('#btnOpen').addEventListener('click', () => { menu.open = false; $('#projPick').click(); });
+  $('#projPick').addEventListener('change', async e => { const f = e.target.files[0]; e.target.value = ''; if (f) await openProjectFile(f); });
+  $('#btnClear').addEventListener('click', () => {
+    menu.open = false;
+    if (!images.size || confirm('Remove every photo and clear the grid? This cannot be undone.')) { clearEverything(); changed(); }
+  });
+  document.addEventListener('pointerdown', e => { if (menu.open && !menu.contains(e.target)) menu.open = false; });
+  window.addEventListener('keydown', e => {
+    if (run.active || busyCount || e.target.closest('input, select, textarea')) return;
+    const it = selItem();
+    if (e.key === 'Escape' && it) { state.selected = null; renderAll(); }
+    if ((e.key === 'Delete' || (isMac && e.key === 'Backspace')) && it) { e.preventDefault(); takeOff(it); }      // a Mac's delete key sends Backspace
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && putBack()) e.preventDefault();
+  });
+  // a change made just before the page is closed or hidden is written at once instead of waiting for the usual short pause
+  window.addEventListener('pagehide', saveNow);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(); });
+  window.addEventListener('resize', debounce(renderAll, 120));
+  if (onWeb) {          // the web copy: works offline once opened, and asks the browser not to clear the plan
+    $('#saveNote').textContent = 'Your plan is saved automatically in this browser on this computer. Use “Save project file” now and then as a backup.';
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  }
+  if (inProgram) {
+    $('#saveNote').textContent = 'Your plan is saved automatically on this PC.';
+    window.chrome.webview.addEventListener('message', e => { if (e.data === 'closing') flush().then(() => window.chrome.webview.postMessage('saved')); });
+  }
+}
+
+async function init() {
+  bindUI();
+  try { db = await dbOpen(); await withBusy('Opening your saved plan…', restore); } catch (e) { db = null; dbFail(); }     // the page is locked until the plan is back
+  ready = true;
+  syncControls(); renderAll();
+  await refreshServer(true); renderAll();
+}
+window.gridPlanner = { state, images, importFiles, placeMany, setSpan, renderAll, changed, postingOrder, renderTile, renderTileBlob, makeZip, geom, fmt, checks, run, postRun, readExif, shotInfo, newFrame, get server() { return server; } };
+init();
+})();
+</script>
+</body>
+</html>
